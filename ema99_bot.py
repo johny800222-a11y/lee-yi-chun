@@ -235,17 +235,19 @@ class Telegram:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    tz_taipei = timezone(timedelta(hours=8))
+    return datetime.now(tz_taipei).strftime("%Y-%m-%d %H:%M UTC+8")
 
 
 # ═══════════════════════════════════════════════════════════════
 # STATE PERSISTENCE
 # ═══════════════════════════════════════════════════════════════
 DEFAULT_STATE = {
-    "capital"  : INITIAL_CAPITAL,
-    "positions": {},
-    "trades"   : [],
-    "last_run" : None,
+    "capital"        : INITIAL_CAPITAL,
+    "positions"      : {},
+    "trades"         : [],
+    "last_run"       : None,
+    "watchlist_sent" : [],   # 已推送過的觀察名單幣對（避免重複）
 }
 
 
@@ -688,11 +690,22 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
                 w["sym"] = sym
                 watchlist.append(w)
 
-    # 觀察名單排序：State B（更接近進場）優先，再按 gap_ema 升序
+    # 觀察名單排序：State B 優先，再按接近程度
     watchlist.sort(key=lambda x: (0 if x["state"] == "B" else 1, x.get("gap_ema", 0)))
-    if watchlist:
-        log.info(f"觀察名單 {len(watchlist)} 個: {[w['sym'].split('/')[0] for w in watchlist[:5]]}...")
-    tg.on_watchlist(watchlist, PAPER_MODE)
+
+    # 只推送「新進入」觀察名單的幣對（每幣只推一次，離開後重置）
+    prev_sent    = set(state.get("watchlist_sent", []))
+    current_syms = {w["sym"] for w in watchlist}
+    new_items    = [w for w in watchlist if w["sym"] not in prev_sent]
+
+    if new_items:
+        log.info(f"觀察名單新增 {len(new_items)} 個: {[w['sym'].split('/')[0] for w in new_items]}")
+        tg.on_watchlist(new_items, PAPER_MODE)
+    else:
+        log.info(f"觀察名單無新增（目前追蹤 {len(current_syms)} 個）")
+
+    # 更新已推送清單：只保留仍在觀察名單的幣（離開後自動重置，下次重新進入會再推）
+    state["watchlist_sent"] = list(current_syms)
 
     state["capital"]  = capital
     state["last_run"] = str(now)
