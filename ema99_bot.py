@@ -202,6 +202,34 @@ class Telegram:
                 lines.append(f"  {sym.split('/')[0]}: {pnl_pct:+.1f}%  入{p['entry_px']:.4f}")
         self.send("\n".join(lines))
 
+    def on_watchlist(self, items: list, paper: bool) -> None:
+        if not items:
+            return
+        mode = "[虛擬]" if paper else "[實盤]"
+        header = (
+            f"👀 <b>觀察名單 {mode}</b>  {_now()}\n"
+            f"共 {len(items)} 個幣對接近訊號\n"
+        )
+        # 每批 5 個避免超過 Telegram 字元限制
+        for i in range(0, len(items), 5):
+            chunk = items[i:i + 5]
+            lines = [header] if i == 0 else ["👀 <b>（續）</b>\n"]
+            for it in chunk:
+                sym = it["sym"]
+                name = sym.split("/")[0]
+                if it["state"] == "A":
+                    tag = f"📍 即將突破EMA99（差 {it['gap_ema']:.1f}%）"
+                else:
+                    tag = f"⚡ 已突破EMA，待過BB中軌（差 {it['gap_bbm']:.1f}%）"
+                lines.append(
+                    f"<code>{name}</code>  {tag}\n"
+                    f"  現價 {it['cl']:.4f}  EMA {it['ema']:.4f}"
+                    f"  BB中軌 {it['bb_m']:.4f}\n"
+                    f"  洗盤 {it['consec']} 根K棒"
+                    f"  目標 {it['bb_u']:.4f}"
+                )
+            self.send("\n\n".join(lines))
+
     def on_error(self, msg: str) -> None:
         self.send(f"⚠️ <b>Bot 錯誤</b>\n{msg}\n時間：{_now()}")
 
@@ -392,6 +420,73 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
     }
 
 
+def _watchlist_check(d1: pd.DataFrame) -> Optional[dict]:
+    """
+    觀察名單條件（滿足洗盤，但尚未完整觸發進場訊號）：
+    A：價格在 EMA99 下方 ≤2%，洗盤根數 ≥ WASHOUT_BARS → 即將突破
+    B：已突破 EMA99，但仍在 BB 中軌下方 → 突破中待確認
+    """
+    idx = len(d1) - 1
+    if idx < EMA_N + BB_N + WASHOUT_BARS + 5:
+        return None
+
+    bar  = d1.iloc[idx]
+    prev = d1.iloc[idx - 1]
+    cl   = bar["close"]
+    ema  = bar["ema"]
+    bb_m = bar["bb_m"]
+    bb_u = bar["bb_u"]
+
+    # 連續洗盤計數
+    consec = 0
+    for k in range(1, idx + 1):
+        if d1.iloc[idx - k]["close"] <= d1.iloc[idx - k]["ema"]:
+            consec += 1
+        else:
+            break
+
+    if consec < WASHOUT_BARS:
+        return None
+
+    # A：在 EMA99 下方但差距 ≤2%
+    if cl < ema:
+        gap = (ema - cl) / ema * 100
+        if gap <= 2.0:
+            return {
+                "state"  : "A",
+                "cl"     : cl,
+                "ema"    : ema,
+                "bb_m"   : bb_m,
+                "bb_u"   : bb_u,
+                "gap_ema": gap,
+                "gap_bbm": (bb_m - cl) / bb_m * 100,
+                "consec" : consec,
+            }
+
+    # B：已過 EMA99 但未過 BB 中軌（fresh crossover）
+    if cl > ema and cl < bb_m and prev["close"] <= prev["ema"]:
+        # 用 prev bars 重新算 washout（現在 idx-1 是剛過去的）
+        consec_prev = 0
+        for k in range(1, idx + 1):
+            if d1.iloc[idx - k]["close"] <= d1.iloc[idx - k]["ema"]:
+                consec_prev += 1
+            else:
+                break
+        if consec_prev >= WASHOUT_BARS:
+            return {
+                "state"  : "B",
+                "cl"     : cl,
+                "ema"    : ema,
+                "bb_m"   : bb_m,
+                "bb_u"   : bb_u,
+                "gap_ema": (cl - ema) / ema * 100,
+                "gap_bbm": (bb_m - cl) / bb_m * 100,
+                "consec" : consec_prev,
+            }
+
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════
 # MAIN LOOP ITERATION
 # ═══════════════════════════════════════════════════════════════
@@ -408,9 +503,13 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
     try:
         top_syms = get_top_symbols(exch, TOP_N)
     except Exception as e:
-        msg = f"get_top_symbols 失敗: {e}"
-        log.error(msg)
-        tg.on_error(msg)
+        msg = str(e)
+        log.error(f"get_top_symbols 失敗: {msg}")
+        # IP 被封鎖時靜默等待，不發 Telegram 通知
+        if "-1003" in msg or "418" in msg or "banned" in msg.lower():
+            log.warning("Binance IP 封鎖中，靜默等待下次執行...")
+            return
+        tg.on_error(f"get_top_symbols 失敗: {msg}")
         return
 
     # ── 2. 更新持倉當前價（for status display）────────────────
@@ -505,34 +604,35 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
 
     state["capital"] = capital
 
-    # ── 4. 進場掃描 ───────────────────────────────────────────
-    if len(positions) >= MAX_OPEN_POS:
-        log.info("持倉已滿，跳過進場掃描")
-    else:
-        for sym in top_syms:
-            if sym in positions or len(positions) >= MAX_OPEN_POS:
-                continue
-            if capital < 50:
-                break
+    # ── 4. 進場掃描 + 觀察名單 ───────────────────────────────
+    can_enter = len(positions) < MAX_OPEN_POS and capital >= 50
+    if not can_enter:
+        log.info("持倉已滿，只掃描觀察名單")
 
-            # 4H 趨勢
-            d4 = fetch_ohlcv(exch, sym, "4h", limit=150)
-            if d4.empty:
-                continue
-            d4 = add_4h_ind(d4)
-            if not _4h_ok(d4):
-                continue
+    watchlist: list[dict] = []
 
-            # 1H 訊號
-            d1 = fetch_ohlcv(exch, sym, "1h", limit=250)
-            if d1.empty:
-                continue
-            d1  = add_1h_ind(d1)
-            sig = _entry_signal(d1)
-            if sig is None:
-                continue
+    for sym in top_syms:
+        if sym in positions:
+            continue
 
-            # 倉位計算
+        # 4H 趨勢（進場 + 觀察名單共用）
+        d4 = fetch_ohlcv(exch, sym, "4h", limit=150)
+        if d4.empty:
+            continue
+        d4 = add_4h_ind(d4)
+        if not _4h_ok(d4):
+            continue
+
+        # 1H 資料（進場 + 觀察名單共用）
+        d1 = fetch_ohlcv(exch, sym, "1h", limit=250)
+        if d1.empty:
+            continue
+        d1 = add_1h_ind(d1)
+
+        sig = _entry_signal(d1)
+
+        if sig is not None and can_enter and len(positions) < MAX_OPEN_POS:
+            # ── 執行進場 ──────────────────────────────────
             entry_px = sig["entry_px"]
             atr_v    = sig["atr"]
             atr_pct  = atr_v / entry_px if entry_px > 0 else 0.05
@@ -580,6 +680,19 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
             log.info(f"ENTRY {sym}  px={entry_px:.4f}  lev={lev}x  sl={sl:.4f}")
             tg.on_entry(sym, entry_px, qty, margin, sl, lev, PAPER_MODE)
             time.sleep(0.3)
+
+        elif sig is None:
+            # ── 觀察名單檢查 ───────────────────────────────
+            w = _watchlist_check(d1)
+            if w:
+                w["sym"] = sym
+                watchlist.append(w)
+
+    # 觀察名單排序：State B（更接近進場）優先，再按 gap_ema 升序
+    watchlist.sort(key=lambda x: (0 if x["state"] == "B" else 1, x.get("gap_ema", 0)))
+    if watchlist:
+        log.info(f"觀察名單 {len(watchlist)} 個: {[w['sym'].split('/')[0] for w in watchlist[:5]]}...")
+    tg.on_watchlist(watchlist, PAPER_MODE)
 
     state["capital"]  = capital
     state["last_run"] = str(now)
@@ -678,12 +791,44 @@ def _cmd_listener(tg: "Telegram") -> None:
                             / p["entry_px"] * p["notional"] for p in positions.values()),
                         PAPER_MODE)
 
+                elif text in ("/觀察", "/watchlist"):
+                    tg.send("🔄 正在掃描觀察名單，請稍候...")
+                    try:
+                        _exch = get_exchange()
+                        syms  = get_top_symbols(_exch, TOP_N)
+                        wl: list[dict] = []
+                        for s in syms:
+                            if s in positions:
+                                continue
+                            d4t = fetch_ohlcv(_exch, s, "4h", limit=150)
+                            if d4t.empty:
+                                continue
+                            d4t = add_4h_ind(d4t)
+                            if not _4h_ok(d4t):
+                                continue
+                            d1t = fetch_ohlcv(_exch, s, "1h", limit=250)
+                            if d1t.empty:
+                                continue
+                            d1t = add_1h_ind(d1t)
+                            w   = _watchlist_check(d1t)
+                            if w:
+                                w["sym"] = s
+                                wl.append(w)
+                        wl.sort(key=lambda x: (0 if x["state"] == "B" else 1, x.get("gap_ema", 0)))
+                        if wl:
+                            tg.on_watchlist(wl, PAPER_MODE)
+                        else:
+                            tg.send("👀 目前無符合觀察條件的幣對")
+                    except Exception as we:
+                        tg.send(f"⚠️ 觀察名單掃描失敗: {we}")
+
                 elif text == "/help":
                     tg.send(
                         "📖 <b>可用指令</b>\n"
                         "/持倉 — 顯示目前所有持倉\n"
                         "/盈虧 — 顯示損益摘要\n"
-                        "/狀態 — 完整狀態報告"
+                        "/狀態 — 完整狀態報告\n"
+                        "/觀察 — 即時掃描觀察名單（即將突破）"
                     )
 
         except Exception as e:
