@@ -51,6 +51,10 @@ BINANCE_SECRET = os.getenv("BINANCE_API_SECRET", "3OvHOvzByCKDK0PavpGC5eGx7PPDZ5
 TG_TOKEN       = os.getenv("TELEGRAM_BOT_TOKEN", "8005879844:AAG8DJoaphzsweVmdvMB6SNphJdRy0osQGo")
 TG_CHAT_ID     = os.getenv("TELEGRAM_CHAT_ID",   "1768177615")
 
+# ── 掃描間隔 ─────────────────────────────────────────────────────
+SCAN_INTERVAL_SEC  = 1 * 60    # 每 1 分鐘掃一次
+STATUS_INTERVAL_HR = 1         # 每幾小時發一次狀態報告
+
 # ── 策略參數 ────────────────────────────────────────────────────
 INITIAL_CAPITAL = 10_000
 MAX_POS_PCT     = 0.10
@@ -62,13 +66,17 @@ BB_N, BB_STD    = 20, 2.0
 ATR_N           = 14
 WASHOUT_BARS    = 3
 SLOPE_LOOKBACK  = 3
+MIN_TP_DIST     = 0.02   # BB 上軌距進場至少 2%（過近不進場）
+COOLDOWN_HOURS  = 4      # 出場後同一幣冷卻 4 小時才可再進場
 BREAKEVEN_PCT   = 0.05
 TRAIL_ATR_MULT  = 1.5
 TAKER_FEE       = 0.0005
 
 # ── 檔案 ────────────────────────────────────────────────────────
-STATE_FILE = Path("ema99_bot_state.json")
-LOG_FILE   = Path("ema99_bot.log")
+STATE_FILE      = Path("ema99_bot_state.json")
+LOG_FILE        = Path("ema99_bot.log")
+JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY", "")
+JSONBIN_BIN_ID  = os.getenv("JSONBIN_BIN_ID",  "")
 
 # ── Logging ─────────────────────────────────────────────────────
 logging.basicConfig(
@@ -248,10 +256,51 @@ DEFAULT_STATE = {
     "trades"         : [],
     "last_run"       : None,
     "watchlist_sent" : [],   # 已推送過的觀察名單幣對（避免重複）
+    "cooldown"       : {},   # sym -> 最後出場時間（冷卻用）
 }
 
 
+def _jsonbin_load() -> Optional[dict]:
+    """從 jsonbin.io 讀取狀態（回傳 None 表示失敗）"""
+    if not JSONBIN_API_KEY or not JSONBIN_BIN_ID:
+        return None
+    try:
+        r = requests.get(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest",
+            headers={"X-Master-Key": JSONBIN_API_KEY},
+            timeout=10,
+        )
+        if r.ok:
+            return r.json().get("record")
+    except Exception as e:
+        log.warning(f"jsonbin load failed: {e}")
+    return None
+
+
+def _jsonbin_save(s: dict) -> bool:
+    """把狀態寫到 jsonbin.io（回傳是否成功）"""
+    if not JSONBIN_API_KEY or not JSONBIN_BIN_ID:
+        return False
+    try:
+        r = requests.put(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}",
+            headers={"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"},
+            json=s,
+            timeout=10,
+        )
+        return r.ok
+    except Exception as e:
+        log.warning(f"jsonbin save failed: {e}")
+        return False
+
+
 def load_state() -> dict:
+    # 優先從雲端讀取（Render 重啟後也不會掉資料）
+    remote = _jsonbin_load()
+    if remote is not None:
+        log.info("狀態從 jsonbin.io 載入")
+        return remote
+    # fallback：本地檔案
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text(encoding="utf-8"))
@@ -261,8 +310,10 @@ def load_state() -> dict:
 
 
 def save_state(s: dict) -> None:
+    # 同時寫本地 + 雲端
     STATE_FILE.write_text(json.dumps(s, indent=2, default=str, ensure_ascii=False),
                           encoding="utf-8")
+    _jsonbin_save(s)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -492,7 +543,7 @@ def _watchlist_check(d1: pd.DataFrame) -> Optional[dict]:
 # ═══════════════════════════════════════════════════════════════
 # MAIN LOOP ITERATION
 # ═══════════════════════════════════════════════════════════════
-def run_once(exch, tg: Telegram, state: dict) -> None:
+def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None:
     now     = datetime.now(timezone.utc)
     capital = state["capital"]
     positions = state["positions"]
@@ -551,6 +602,7 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
             tg.on_stop_loss(sym, entry_px, exit_px, net, hold_h, reason_label, PAPER_MODE)
             state["trades"].append(_trade_record(sym, pos, exit_px, net, "stop_loss", now))
             log.info(f"STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+            state.setdefault("cooldown", {})[sym] = str(now)
             del positions[sym]
             continue
 
@@ -595,6 +647,7 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
             tg.on_trail_stop(sym, entry_px, exit_px, net, hold_h, PAPER_MODE)
             state["trades"].append(_trade_record(sym, pos, exit_px, net, "trail_stop", now))
             log.info(f"TRAIL_STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+            state.setdefault("cooldown", {})[sym] = str(now)
             del positions[sym]
             continue
 
@@ -634,8 +687,25 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
         sig = _entry_signal(d1)
 
         if sig is not None and can_enter and len(positions) < MAX_OPEN_POS:
-            # ── 執行進場 ──────────────────────────────────
             entry_px = sig["entry_px"]
+
+            # 冷卻期過濾：出場後 COOLDOWN_HOURS 內不再進同一幣
+            cooldown_map = state.get("cooldown", {})
+            if sym in cooldown_map:
+                last_exit = datetime.fromisoformat(cooldown_map[sym])
+                if (now - last_exit).total_seconds() < COOLDOWN_HOURS * 3600:
+                    log.info(f"COOLDOWN {sym}  跳過（距上次出場 {(now-last_exit).total_seconds()/3600:.1f}h）")
+                    continue
+                else:
+                    del cooldown_map[sym]   # 冷卻結束，清除紀錄
+
+            # BB 上軌距離過近過濾：至少需有 MIN_TP_DIST 的獲利空間
+            tp_dist = (sig["bb_u"] - entry_px) / entry_px
+            if tp_dist < MIN_TP_DIST:
+                log.info(f"TP_TOO_CLOSE {sym}  bb_u 距離 {tp_dist*100:.1f}% < {MIN_TP_DIST*100:.0f}%，跳過")
+                continue
+
+            # ── 執行進場 ──────────────────────────────────
             atr_v    = sig["atr"]
             atr_pct  = atr_v / entry_px if entry_px > 0 else 0.05
             lev = 3 if atr_pct < 0.025 else (2 if atr_pct < 0.04 else 1)
@@ -711,13 +781,14 @@ def run_once(exch, tg: Telegram, state: dict) -> None:
     state["last_run"] = str(now)
     save_state(state)
 
-    # ── 5. 每小時狀態通知 ─────────────────────────────────────
+    # ── 5. 狀態通知（僅在排程器認為到時間才送）────────────────
     open_pnl = sum(
         (p.get("cur_px", p["entry_px"]) - p["entry_px"])
         / p["entry_px"] * p["notional"]
         for p in positions.values()
     )
-    tg.on_hourly_status(capital, positions, open_pnl, PAPER_MODE)
+    if send_status:
+        tg.on_hourly_status(capital, positions, open_pnl, PAPER_MODE)
     log.info(f"Done  capital={capital:.2f}  pos={len(positions)}  open_pnl={open_pnl:+.2f}")
 
 
@@ -850,18 +921,12 @@ def _cmd_listener(tg: "Telegram") -> None:
 
 
 # ═══════════════════════════════════════════════════════════════
-# SCHEDULER — 整點執行
+# SCHEDULER — 每 SCAN_INTERVAL_SEC 秒掃一次，立即下單
 # ═══════════════════════════════════════════════════════════════
-def _next_hour() -> float:
-    """回傳距下一個整點的秒數"""
-    now = datetime.now(timezone.utc)
-    nxt = (now + timedelta(hours=1)).replace(minute=0, second=5, microsecond=0)
-    return max((nxt - now).total_seconds(), 0)
-
-
 def main() -> None:
-    state = load_state()
-    tg    = Telegram(TG_TOKEN, TG_CHAT_ID)
+    state           = load_state()
+    tg              = Telegram(TG_TOKEN, TG_CHAT_ID)
+    last_status_ts  = None   # 上次發狀態報告的時間
 
     # 啟動指令監聽執行緒
     t = threading.Thread(target=_cmd_listener, args=(tg,), daemon=True)
@@ -870,26 +935,30 @@ def main() -> None:
     tg.on_start(PAPER_MODE)
     log.info("=" * 60)
     log.info(f"  EMA99 Bot 啟動  PAPER={PAPER_MODE}")
+    log.info(f"  掃描間隔：{SCAN_INTERVAL_SEC // 60} 分鐘")
     log.info(f"  capital={state['capital']:.2f}  pos={len(state['positions'])}")
     log.info("=" * 60)
 
-    # 立刻跑一次，之後整點循環
-    try:
-        run_once(get_exchange(), tg, state)
-    except Exception as e:
-        log.exception(f"run_once error: {e}")
-        tg.on_error(str(e))
-
     while True:
-        secs = _next_hour()
-        log.info(f"等待下次執行，{secs/60:.1f} 分後（下一個整點）")
-        time.sleep(secs)
+        now = datetime.now(timezone.utc)
+
+        # 判斷是否要發狀態報告（第一次固定發，之後每 STATUS_INTERVAL_HR 小時一次）
+        send_status = (
+            last_status_ts is None or
+            (now - last_status_ts).total_seconds() >= STATUS_INTERVAL_HR * 3600
+        )
+
         try:
             state = load_state()
-            run_once(get_exchange(), tg, state)  # 每次重建 exchange，確保用最新 Key
+            run_once(get_exchange(), tg, state, send_status=send_status)
+            if send_status:
+                last_status_ts = now
         except Exception as e:
             log.exception(f"run_once error: {e}")
             tg.on_error(str(e))
+
+        log.info(f"等待 {SCAN_INTERVAL_SEC // 60} 分鐘後下次掃描...")
+        time.sleep(SCAN_INTERVAL_SEC)
 
 
 if __name__ == "__main__":
