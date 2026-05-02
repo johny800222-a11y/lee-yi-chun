@@ -7,3 +7,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+
+  - type: web
+    name: portfolio-app
+    runtime: python
+    buildCommand: pip install -r requirements_portfolio.txt
+    startCommand: gunicorn portfolio_app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: JSONBIN_API_KEY
+        value: $2a$10$Paag0S516c7p2hVgS4quJ.z6QfZugOE5rHOkuDfGxfWOmCP8x5iN6
+      - key: JSONBIN_BIN_ID
+        value: 69f5e70d856a68218999e88f
+      - key: JSONBIN_MANUAL_BIN_ID
+        value: 69f573ed36566621a8165fbd
