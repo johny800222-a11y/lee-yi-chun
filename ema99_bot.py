@@ -79,15 +79,19 @@ JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY", "")
 JSONBIN_BIN_ID  = os.getenv("JSONBIN_BIN_ID",  "")
 
 # ── Logging ─────────────────────────────────────────────────────
-logging.basicConfig(
-    level   = logging.INFO,
-    format  = "%(asctime)s %(levelname)s %(message)s",
-    handlers= [
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
-log = logging.getLogger(__name__)
+# 只用 FileHandler，避免 StreamHandler + shell 重導向（>> log 2>&1）造成每行寫兩次
+_log_fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+_file_handler   = logging.FileHandler(LOG_FILE, encoding="utf-8")
+_file_handler.setFormatter(_log_fmt)
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(_log_fmt)
+
+log = logging.getLogger("ema99_bot")
+log.setLevel(logging.INFO)
+log.propagate = False          # 不往 root 傳，避免重複
+if not log.handlers:           # 確保只加一次
+    log.addHandler(_file_handler)
+    log.addHandler(_stream_handler)
 
 
 # ═══════════════════════════════════════════════════════════════
