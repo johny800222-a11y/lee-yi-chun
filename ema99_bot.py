@@ -919,13 +919,51 @@ def _cmd_listener(tg: "Telegram") -> None:
                     except Exception as we:
                         tg.send(f"⚠️ 觀察名單掃描失敗: {we}")
 
+                elif text and text.split()[0] in ("/歷史", "/history"):
+                    parts  = text.split()
+                    try:
+                        n = int(parts[1]) if len(parts) > 1 else 10
+                    except ValueError:
+                        n = 10
+                    n = max(1, min(n, 50))
+                    trades = state.get("trades", [])
+                    if not trades:
+                        tg.send("尚無歷史交易紀錄")
+                    else:
+                        recent   = trades[-n:][::-1]
+                        realized = sum(t["pnl"] for t in trades)
+                        wins     = sum(1 for t in trades if t["pnl"] > 0)
+                        wr       = wins / len(trades) * 100
+                        lines = [f"📜 <b>歷史訂單（最近 {len(recent)} / 共 {len(trades)} 筆）</b>"]
+                        for t in recent:
+                            sym = t.get("sym", "?").split("/")[0]
+                            ep  = t.get("entry_px", 0)
+                            xp  = t.get("exit_px", 0)
+                            pnl = t.get("pnl", 0)
+                            pct = (xp - ep) / ep * 100 if ep else 0
+                            rsn = t.get("reason", "")
+                            ts  = str(t.get("exit_ts", ""))[:16]
+                            emo = "✅" if pnl > 0 else "❌"
+                            lines.append(
+                                f"\n{emo} <code>{sym}</code>  {ts}\n"
+                                f"  {ep:.4f} → {xp:.4f}  ({pct:+.1f}%)\n"
+                                f"  PnL：{pnl:+.2f} USDT  [{rsn}]"
+                            )
+                        lines.append(
+                            f"\n— — —\n"
+                            f"總實現：{realized:+.2f} USDT\n"
+                            f"勝率：{wr:.1f}% ({wins}/{len(trades)})"
+                        )
+                        tg.send("\n".join(lines))
+
                 elif text.lower() in ("/help", "/說明"):
                     tg.send(
                         "📖 <b>可用指令</b>\n"
                         "/持倉 — 顯示目前所有持倉\n"
                         "/盈虧 — 顯示損益摘要\n"
                         "/狀態 — 完整狀態報告\n"
-                        "/觀察 — 即時掃描觀察名單（即將突破）"
+                        "/觀察 — 即時掃描觀察名單（即將突破）\n"
+                        "/歷史 [N] — 顯示最近 N 筆歷史訂單（預設 10，最多 50）"
                     )
 
         except Exception as e:
