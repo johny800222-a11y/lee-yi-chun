@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>兒童點餐</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, "PingFang TC", sans-serif;
+    background: #faf6f0;
+    min-height: 100vh;
+  }
+
+  /* 頂部欄 */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    background: #faf6f0;
+    z-index: 10;
+  }
+
+  .tabs { display: flex; gap: 8px; }
+
+  .tab {
+    border: none;
+    padding: 7px 18px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s;
+    background: white;
+    color: #888;
+  }
+  .tab.active { background: #e88a38; color: white; }
+
+  .cart-btn {
+    position: relative;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: white;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    transition: transform .15s;
+  }
+  .cart-btn:active { transform: scale(.93); }
+
+  .badge {
+    position: absolute;
+    top: -2px; right: -2px;
+    background: #e53935;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px; height: 18px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px;
+  }
+  .badge.hidden { display: none; }
+
+  /* 頁面區塊切換 */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── 餐點頁 ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 0 12px 80px;
+  }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-img {
+    background: #f5c9a0;
+    height: 90px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+
+  .card-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .card-name { font-size: 14px; font-weight: 700; color: #1a1a1a; }
+  .card-desc { font-size: 10px; color: #999; line-height: 1.4; }
+  .card-price { font-size: 14px; font-weight: 700; color: #e88a38; }
+
+  .add-btn {
+    margin-top: 6px;
+    border: none;
+    background: #e88a38;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity .15s;
+  }
+  .add-btn:active { opacity: .75; }
+
+  /* ── 許願清單頁 ── */
+  .wish-page {
+    padding: 16px 16px 100px;
+  }
+
+  .wish-hero {
+    text-align: center;
+    padding: 20px 0 24px;
+  }
+  .wish-hero .star { font-size: 48px; }
+  .wish-hero h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-top: 8px;
+    color: #1a1a1a;
+  }
+  .wish-hero p {
+    font-size: 13px;
+    color: #aaa;
+    margin-top: 4px;
+  }
+
+  .wish-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .wish-input {
+    flex: 1;
+    border: 2px solid #f0e8df;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 16px;
+    font-family: inherit;
+    background: white;
+    outline: none;
+    transition: border-color .18s;
+  }
+  .wish-input:focus { border-color: #e88a38; }
+
+  .wish-add-btn {
+    border: none;
+    background: #e88a38;
+    color: white;
+    font-size: 22px;
+    width: 48px;
+    border-radius: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity .15s;
+  }
+  .wish-add-btn:active { opacity: .75; }
+
+  .wish-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .wish-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.05);
+    animation: popIn .18s;
+  }
+
+  .wish-star { font-size: 20px; }
+  .wish-text { flex: 1; font-size: 15px; font-weight: 500; color: #1a1a1a; }
+  .wish-del {
+    border: none;
+    background: none;
+    color: #ccc;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    transition: color .15s;
+  }
+  .wish-del:hover { color: #e53935; }
+
+  .wish-empty {
+    text-align: center;
+    padding: 40px 0;
+    color: #ccc;
+    font-size: 15px;
+  }
+
+  /* Modal 遮罩 */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn .18s;
+  }
+  .overlay.show { display: flex; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    width: calc(100% - 64px);
+    max-width: 340px;
+    animation: popIn .18s;
+  }
+
+  @keyframes popIn {
+    from { transform: scale(.93); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; }
+  .close-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: #666;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .option-group { margin-bottom: 16px; }
+  .option-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .option-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .pill {
+    border: none;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #f0f0f0;
+    color: #333;
+    transition: all .15s;
+  }
+  .pill.active { background: #e88a38; color: white; }
+
+  .qty-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; margin: 16px 0;
+  }
+  .qty-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(232,138,56,.15);
+    border: none;
+    color: #e88a38;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .qty-btn:active { background: rgba(232,138,56,.3); }
+  .qty-num { font-size: 18px; font-weight: 700; width: 36px; text-align: center; }
+
+  .confirm-btn {
+    border: none;
+    background: #e88a38;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity .15s;
+  }
+  .confirm-btn:active { opacity: .75; }
+
+  /* 購物車面板 */
+  .cart-panel {
+    display: none;
+    position: fixed; inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,.45);
+    align-items: flex-end;
+    animation: fadeIn .18s;
+  }
+  .cart-panel.show { display: flex; }
+
+  .cart-sheet {
+    background: white;
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp .22s;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  .cart-header {
+    padding: 20px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .cart-header h2 { font-size: 18px; font-weight: 700; }
+
+  .cart-list { flex: 1; overflow-y: auto; padding: 0 20px; }
+
+  .cart-item {
+    display: flex; align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f9f9f9;
+    gap: 12px;
+  }
+  .cart-emoji { font-size: 28px; }
+  .cart-info { flex: 1; }
+  .cart-item-name { font-size: 15px; font-weight: 600; }
+  .cart-item-opt { font-size: 12px; color: #999; margin-top: 2px; }
+  .cart-item-price { font-size: 15px; font-weight: 700; color: #e88a38; }
+  .cart-item-qty { font-size: 12px; color: #aaa; }
+
+  .wish-section {
+    margin: 8px 20px 4px;
+    padding: 12px 0;
+    border-top: 1px solid #f0f0f0;
+  }
+  .wish-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .wish-tag {
+    display: inline-block;
+    background: #fff3e6;
+    color: #e88a38;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 13px;
+    margin: 3px 4px 3px 0;
+  }
+
+  .empty-cart {
+    text-align: center;
+    padding: 40px 0;
+    color: #aaa;
+    font-size: 16px;
+  }
+
+  .cart-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #f0f0f0;
+    box-shadow: 0 -4px 12px rgba(0,0,0,.05);
+  }
+  .total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .total-label { font-size: 16px; font-weight: 600; }
+  .total-amount { font-size: 22px; font-weight: 700; color: #e88a38; }
+
+  .order-btn {
+    border: none;
+    background: #e88a38;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity .15s;
+  }
+  .order-btn:active { opacity: .85; }
+  .order-btn:disabled { background: #ccc; cursor: default; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 40px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #333;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all .25s;
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- 頂部欄 -->
+<div class="topbar">
+  <div class="tabs">
+    <button class="tab active" id="tab-menu" onclick="switchTab('menu')">餐點</button>
+    <button class="tab" id="tab-wish" onclick="switchTab('wish')">⭐ 許願清單</button>
+  </div>
+  <button class="cart-btn" onclick="openCart()">
+    🛒
+    <span class="badge hidden" id="badge">0</span>
+  </button>
+</div>
+
+<!-- 餐點頁 -->
+<div class="page active" id="page-menu">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- 許願清單頁 -->
+<div class="page" id="page-wish">
+  <div class="wish-page">
+    <div class="wish-hero">
+      <div class="star">⭐</div>
+      <h2>我想吃什麼？</h2>
+      <p>打字告訴爸爸媽媽你想吃的東西！</p>
+    </div>
+
+    <div class="wish-input-row">
+      <input class="wish-input" id="wish-input" type="text"
+        placeholder="例如：漢堡、炒飯、壽司⋯"
+        maxlength="30"
+        onkeydown="if(event.key==='Enter') addWish()">
+      <button class="wish-add-btn" onclick="addWish()">＋</button>
+    </div>
+
+    <div class="wish-list" id="wish-list">
+      <div class="wish-empty">還沒有願望，快來許願吧！🌟</div>
+    </div>
+  </div>
+</div>
+
+<!-- 點餐 Modal -->
+<div class="overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="close-btn" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="option-group">
+      <div class="option-label">冰塊</div>
+      <div class="option-pills" id="ice-pills"></div>
+    </div>
+    <div class="option-group">
+      <div class="option-label">甜度</div>
+      <div class="option-pills" id="sugar-pills"></div>
+    </div>
+    <div class="qty-row">
+      <button class="qty-btn" onclick="changeQty(-1)">−</button>
+      <span class="qty-num" id="qty">1</span>
+      <button class="qty-btn" onclick="changeQty(1)">+</button>
+    </div>
+    <button class="confirm-btn" id="confirm-btn" onclick="addToCart()">加入購物車</button>
+  </div>
+</div>
+
+<!-- 購物車面板 -->
+<div class="cart-panel" id="cart-panel" onclick="closeCart(event)">
+  <div class="cart-sheet">
+    <div class="cart-header">
+      <h2>明天的訂單 🌅</h2>
+      <button class="close-btn" onclick="closeCartDirect()">✕</button>
+    </div>
+    <div class="cart-list" id="cart-list"></div>
+    <div class="cart-footer">
+      <div class="total-row">
+        <span class="total-label">合計</span>
+        <span class="total-amount" id="total">$0</span>
+      </div>
+      <button class="order-btn" id="order-btn" onclick="submitOrder()">送出並通知爸媽 📲</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Telegram 設定（填入你的 token 和 chat_id）──
+const TG_TOKEN   = '8727554075:AAFEJM-6vCxgDvCGYn22potnDH8gQ2JbI0U';
+const TG_CHAT_ID = '1768177615';
+
+const MENU = [
+  { id:1, name:'紅茶',    price:25, desc:'清香回甘，解渴首選', emoji:'🍵' },
+  { id:2, name:'奶茶',    price:30, desc:'香濃奶茶，順口滑順', emoji:'🥛' },
+  { id:3, name:'豆漿',    price:25, desc:'營養豆漿，健康滿分', emoji:'🧃' },
+  { id:4, name:'美式咖啡',price:40, desc:'濃郁咖啡，提神醒腦', emoji:'☕️' },
+  { id:5, name:'綠茶',    price:25, desc:'清新綠茶，回甘無比', emoji:'🍃' },
+  { id:6, name:'珍珠奶茶',price:45, desc:'Q彈珍珠，超受歡迎', emoji:'🧋' },
+  { id:7, name:'荷包蛋',  price:15, desc:'新鮮雞蛋，香嫩可口', emoji:'🍳' },
+  { id:8, name:'培根',    price:20, desc:'香脆培根，鹹香下飯', emoji:'🥓' },
+  { id:9, name:'薯餅',    price:20, desc:'外酥內軟，小孩最愛', emoji:'🥔' },
+  { id:10,name:'起司片',  price:10, desc:'濃郁起司，越吃越香', emoji:'🧀' },
+];
+
+const ICE   = ['正常','少冰','去冰'];
+const SUGAR = ['正常','半糖','微糖','無糖'];
+
+let currentItem = null;
+let selectedIce = '正常';
+let selectedSugar = '正常';
+let qty = 1;
+let cart = [];
+let wishes = [];
+
+// ── Tab 切換 ──
+function switchTab(tab) {
+  document.getElementById('page-menu').classList.toggle('active', tab === 'menu');
+  document.getElementById('page-wish').classList.toggle('active', tab === 'wish');
+  document.getElementById('tab-menu').classList.toggle('active', tab === 'menu');
+  document.getElementById('tab-wish').classList.toggle('active', tab === 'wish');
+  if (tab === 'wish') setTimeout(() => document.getElementById('wish-input').focus(), 200);
+}
+
+// ── 許願清單 ──
+function addWish() {
+  const input = document.getElementById('wish-input');
+  const text = input.value.trim();
+  if (!text) return;
+  wishes.push(text);
+  input.value = '';
+  renderWishes();
+  showToast('⭐ 許願成功！');
+}
+
+function removeWish(i) {
+  wishes.splice(i, 1);
+  renderWishes();
+}
+
+function renderWishes() {
+  const list = document.getElementById('wish-list');
+  if (wishes.length === 0) {
+    list.innerHTML = '<div class="wish-empty">還沒有願望，快來許願吧！🌟</div>';
+    return;
+  }
+  list.innerHTML = wishes.map((w, i) => `
+    <div class="wish-item">
+      <span class="wish-star">⭐</span>
+      <span class="wish-text">${escHtml(w)}</span>
+      <button class="wish-del" onclick="removeWish(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 渲染商品格子 ──
+function renderGrid() {
+  document.getElementById('grid').innerHTML = MENU.map(item => `
+    <div class="card">
+      <div class="card-img">${item.emoji}</div>
+      <div class="card-body">
+        <div class="card-name">${item.name}</div>
+        <div class="card-desc">${item.desc}</div>
+        <div class="card-price">$${item.price}</div>
+        <button class="add-btn" onclick="openModal(${item.id})">加入購物車</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Modal ──
+function openModal(id) {
+  currentItem = MENU.find(m => m.id === id);
+  selectedIce = '正常'; selectedSugar = '正常'; qty = 1;
+  document.getElementById('modal-title').textContent = currentItem.name;
+  renderPillsReal('ice-pills',   ICE,   selectedIce);
+  renderPillsReal('sugar-pills', SUGAR, selectedSugar);
+  document.getElementById('qty').textContent = qty;
+  updateConfirmBtn();
+  document.getElementById('modal').classList.add('show');
+}
+
+function renderPillsReal(containerId, options, selected) {
+  document.getElementById(containerId).innerHTML = options.map(opt => `
+    <button class="pill ${opt === selected ? 'active' : ''}"
+      onclick="pillClick('${containerId}','${opt}')">${opt}</button>
+  `).join('');
+}
+
+function pillClick(containerId, value) {
+  if (containerId === 'ice-pills') selectedIce = value;
+  else selectedSugar = value;
+  renderPillsReal('ice-pills',   ICE,   selectedIce);
+  renderPillsReal('sugar-pills', SUGAR, selectedSugar);
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  document.getElementById('confirm-btn').textContent =
+    `加入購物車  $${currentItem.price * qty}`;
+}
+
+function changeQty(delta) {
+  qty = Math.max(1, qty + delta);
+  document.getElementById('qty').textContent = qty;
+  updateConfirmBtn();
+}
+
+function closeModal(e) { if (e.target.id === 'modal') closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modal').classList.remove('show'); }
+
+function addToCart() {
+  cart.push({ item: currentItem, ice: selectedIce, sugar: selectedSugar, qty });
+  closeModalDirect();
+  updateBadge();
+  showToast(`${currentItem.emoji} ${currentItem.name} 已加入！`);
+}
+
+// ── 購物車 ──
+function openCart() {
+  renderCartList();
+  document.getElementById('cart-panel').classList.add('show');
+}
+function closeCart(e) { if (e.target.id === 'cart-panel') closeCartDirect(); }
+function closeCartDirect() { document.getElementById('cart-panel').classList.remove('show'); }
+
+function renderCartList() {
+  const list = document.getElementById('cart-list');
+  const hasCart = cart.length > 0;
+  const hasWish = wishes.length > 0;
+
+  if (!hasCart && !hasWish) {
+    list.innerHTML = '<div class="empty-cart">🛒<br>還沒有點餐或許願喔！</div>';
+    document.getElementById('order-btn').disabled = true;
+    document.getElementById('total').textContent = '$0';
+    return;
+  }
+
+  let html = '';
+  if (hasCart) {
+    html += cart.map(c => `
+      <div class="cart-item">
+        <div class="cart-emoji">${c.item.emoji}</div>
+        <div class="cart-info">
+          <div class="cart-item-name">${c.item.name}</div>
+          <div class="cart-item-opt">${c.ice} · ${c.sugar}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="cart-item-qty">x${c.qty}</div>
+          <div class="cart-item-price">$${c.item.price * c.qty}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if (hasWish) {
+    html += `
+      <div class="wish-section">
+        <div class="wish-section-title">⭐ 許願清單</div>
+        ${wishes.map(w => `<span class="wish-tag">${escHtml(w)}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  list.innerHTML = html;
+  document.getElementById('order-btn').disabled = false;
+
+  const total = cart.reduce((s, c) => s + c.item.price * c.qty, 0);
+  document.getElementById('total').textContent = `$${total}`;
+}
+
+function updateBadge() {
+  const total = cart.reduce((s, c) => s + c.qty, 0);
+  const badge = document.getElementById('badge');
+  badge.textContent = total;
+  badge.classList.toggle('hidden', total === 0);
+}
+
+// ── 送出訂單並通知 Telegram ──
+async function submitOrder() {
+  const btn = document.getElementById('order-btn');
+  btn.disabled = true;
+  btn.textContent = '傳送中⋯';
+
+  const now = new Date();
+  const dateStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  let msg = `🍱 *孩子的明日餐點訂單*\n📅 ${dateStr}\n`;
+  msg += `${'─'.repeat(20)}\n`;
+
+  if (cart.length > 0) {
+    msg += `\n*📋 點餐清單*\n`;
+    cart.forEach(c => {
+      msg += `${c.item.emoji} ${c.item.name} x${c.qty}（${c.ice}・${c.sugar}）$${c.item.price * c.qty}\n`;
+    });
+    const total = cart.reduce((s, c) => s + c.item.price * c.qty, 0);
+    msg += `\n💰 *合計：$${total}*\n`;
+  }
+
+  if (wishes.length > 0) {
+    msg += `\n⭐ *許願清單*\n`;
+    wishes.forEach(w => { msg += `• ${w}\n`; });
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT_ID, text: msg, parse_mode: 'Markdown' })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      cart = []; wishes = [];
+      updateBadge(); renderWishes();
+      closeCartDirect();
+      showToast('📲 已傳送給爸媽！');
+    } else {
+      throw new Error(data.description);
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('⚠️ 傳送失敗，請檢查 TG 設定');
+    btn.disabled = false;
+    btn.textContent = '送出並通知爸媽 📲';
+  }
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// 初始化
+renderGrid();
+</script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>後台管理</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "PingFang TC", sans-serif; background: #f5f5f7; min-height: 100vh; }
+
+/* Top bar */
+.topbar { background: white; padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08); position: sticky; top: 0; z-index: 50; }
+.topbar h1 { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+.topbar a { font-size: 13px; color: #e88a38; text-decoration: none; margin-left: auto; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; background: white; border-bottom: 1px solid #eee;
+  position: sticky; top: 57px; z-index: 40; }
+.tab { flex: 1; border: none; background: none; padding: 14px 0; font-size: 14px; font-weight: 600;
+  color: #999; cursor: pointer; border-bottom: 3px solid transparent; transition: all .18s; }
+.tab.active { color: #e88a38; border-bottom-color: #e88a38; }
+
+/* Pages */
+.page { display: none; padding: 20px; }
+.page.active { display: block; }
+
+/* Cards / Table */
+.card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-header h2 { font-size: 16px; font-weight: 700; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; padding: 8px 10px; color: #888; font-weight: 600; font-size: 12px;
+  border-bottom: 1px solid #f0f0f0; }
+td { padding: 10px; border-bottom: 1px solid #f9f9f9; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+
+.emoji-cell { font-size: 22px; text-align: center; width: 40px; }
+.qty-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+.qty-green  { background: #e8f5e9; color: #2e7d32; }
+.qty-orange { background: #fff3e0; color: #e65100; }
+.qty-red    { background: #fde8e8; color: #c62828; }
+
+/* Buttons */
+.btn { border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s; }
+.btn:active { opacity: .75; }
+.btn-primary { background: #e88a38; color: white; }
+.btn-ghost   { background: #f0f0f0; color: #333; }
+.btn-danger  { background: #fde8e8; color: #c62828; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* Modal */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 200; align-items: center; justify-content: center; }
+.overlay.show { display: flex; }
+.modal { background: white; border-radius: 16px; padding: 24px; width: calc(100% - 40px);
+  max-width: 380px; animation: popIn .18s; }
+@keyframes popIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.modal-footer { display: flex; gap: 8px; margin-top: 16px; }
+.modal-footer .btn { flex: 1; }
+
+/* Form */
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: #888; margin-bottom: 5px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; border: 1.5px solid #e8e8e8; border-radius: 8px; padding: 9px 12px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color .18s; }
+.form-group input:focus, .form-group select:focus { border-color: #e88a38; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Log table */
+.action-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.action-in    { background: #e8f5e9; color: #2e7d32; }
+.action-out   { background: #fde8e8; color: #c62828; }
+.action-order { background: #fff3e0; color: #e65100; }
+
+.empty-msg { text-align: center; padding: 30px 0; color: #ccc; font-size: 15px; }
+
+/* Inventory grid */
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.inv-card { background: white; border-radius: 12px; padding: 16px; text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.inv-emoji { font-size: 32px; margin-bottom: 6px; }
+.inv-name  { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 8px; }
+.inv-qty   { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+.inv-qty.green  { color: #2e7d32; }
+.inv-qty.orange { color: #e65100; }
+.inv-qty.red    { color: #c62828; }
+.inv-btns { display: flex; gap: 6px; justify-content: center; }
+
+/* Toast */
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: #333; color: white; padding: 9px 18px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; opacity: 0; transition: all .22s; z-index: 999; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🍳 後台管理</h1>
+  <a href="/">← 前往點餐頁</a>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('items')">品項管理</button>
+  <button class="tab" onclick="switchTab('inventory')">庫存管理</button>
+  <button class="tab" onclick="switchTab('log')">進出庫紀錄</button>
+</div>
+
+<!-- ── 品項管理 ── -->
+<div class="page active" id="page-items">
+  <div class="card">
+    <div class="card-header">
+      <h2>所有品項</h2>
+      <button class="btn btn-primary" onclick="openAddModal()">＋ 新增品項</button>
+    </div>
+    <table id="items-table">
+      <thead><tr>
+        <th></th><th>品名</th><th>分類</th><th>售價</th><th>庫存</th><th>操作</th>
+      </tr></thead>
+      <tbody id="items-tbody">
+        <tr><td colspan="6" class="empty-msg">載入中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── 庫存管理 ── -->
+<div class="page" id="page-inventory">
+  <div class="inv-grid" id="inv-grid">
+    <div style="grid-column:1/-1" class="empty-msg">載入中…</div>
+  </div>
+</div>
+
+<!-- ── 進出庫紀錄 ── -->
+<div class="page" id="page-log">
+  <div class="card">
+    <div class="card-header"><h2>最近 50 筆紀錄</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadLog()">重新整理</button>
+    </div>
+    <table>
+      <thead><tr><th>時間</th><th>品項</th><th>動作</th><th>數量</th><th>備註</th></tr></thead>
+      <tbody id="log-tbody"><tr><td colspan="5" class="empty-msg">點擊載入</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── 新增/編輯品項 Modal ── -->
+<div class="overlay" id="item-modal" onclick="closeItemModal(event)">
+  <div class="modal">
+    <h3 id="item-modal-title">新增品項</h3>
+    <input type="hidden" id="edit-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Emoji 圖示</label>
+        <input id="f-emoji" type="text" placeholder="🍵" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>分類</label>
+        <select id="f-category">
+          <option value="飲料">飲料</option>
+          <option value="小菜">小菜</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>品名</label>
+      <input id="f-name" type="text" placeholder="例：紅茶">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>售價（元）</label>
+        <input id="f-price" type="number" placeholder="25">
+      </div>
+      <div class="form-group" id="init-stock-group">
+        <label>初始庫存</label>
+        <input id="f-stock" type="number" placeholder="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>說明文字</label>
+      <input id="f-desc" type="text" placeholder="清香回甘，解渴首選">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeItemModalDirect()">取消</button>
+      <button class="btn btn-primary" onclick="saveItem()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 進庫/出庫 Modal ── -->
+<div class="overlay" id="inv-modal" onclick="closeInvModal(event)">
+  <div class="modal">
+    <h3 id="inv-modal-title">進庫</h3>
+    <input type="hidden" id="inv-item-id">
+    <input type="hidden" id="inv-action">
+    <div class="form-group">
+      <label>數量</label>
+      <input id="inv-qty" type="number" min="1" placeholder="10">
+    </div>
+    <div class="form-group">
+      <label>備註（選填）</label>
+      <input id="inv-note" type="text" placeholder="例：今日補貨">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeInvModalDirect()">取消</button>
+      <button class="btn btn-primary" onclick="submitInv()">確認</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Tab ──
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((b,i) => {
+    b.classList.toggle('active', ['items','inventory','log'][i] === t);
+  });
+  document.querySelectorAll('.page').forEach((p,i) => {
+    p.classList.toggle('active', ['page-items','page-inventory','page-log'][i] === `page-${t}`);
+  });
+  if (t === 'items')     loadItems();
+  if (t === 'inventory') loadInventory();
+  if (t === 'log')       loadLog();
+}
+
+// ── 品項 ──
+let allItems = [];
+
+async function loadItems() {
+  const rows = await fetch('/api/inventory').then(r=>r.json());
+  allItems = rows;
+  const tbody = document.getElementById('items-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">尚無品項</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => {
+    const qClass = r.quantity >= 5 ? 'qty-green' : r.quantity >= 1 ? 'qty-orange' : 'qty-red';
+    return `<tr>
+      <td class="emoji-cell">${r.emoji}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.category}</td>
+      <td>$${r.price ?? '—'}</td>
+      <td><span class="qty-badge ${qClass}">${r.quantity}</span></td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal(${r.id})">編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem(${r.id},'${r.name}')">刪除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddModal() {
+  document.getElementById('item-modal-title').textContent = '新增品項';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-emoji').value = '';
+  document.getElementById('f-name').value  = '';
+  document.getElementById('f-price').value = '';
+  document.getElementById('f-desc').value  = '';
+  document.getElementById('f-stock').value = '20';
+  document.getElementById('f-category').value = '飲料';
+  document.getElementById('init-stock-group').style.display = '';
+  document.getElementById('item-modal').classList.add('show');
+}
+
+function openEditModal(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('item-modal-title').textContent = '編輯品項';
+  document.getElementById('edit-id').value   = id;
+  document.getElementById('f-emoji').value   = item.emoji;
+  document.getElementById('f-name').value    = item.name;
+  document.getElementById('f-price').value   = item.price;
+  document.getElementById('f-desc').value    = item.desc || '';
+  document.getElementById('f-category').value= item.category;
+  document.getElementById('init-stock-group').style.display = 'none';
+  document.getElementById('item-modal').classList.add('show');
+}
+
+function closeItemModal(e) { if (e.target.id === 'item-modal') closeItemModalDirect(); }
+function closeItemModalDirect() { document.getElementById('item-modal').classList.remove('show'); }
+
+async function saveItem() {
+  const id    = document.getElementById('edit-id').value;
+  const body  = {
+    name:          document.getElementById('f-name').value.trim(),
+    price:         parseInt(document.getElementById('f-price').value),
+    desc:          document.getElementById('f-desc').value.trim(),
+    emoji:         document.getElementById('f-emoji').value.trim() || '🍽',
+    category:      document.getElementById('f-category').value,
+    initial_stock: parseInt(document.getElementById('f-stock').value) || 0,
+  };
+  if (!body.name || !body.price) { showToast('請填寫品名和售價'); return; }
+
+  const url    = id ? `/api/menu/${id}` : '/api/menu';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await res.json();
+  if (d.ok) { closeItemModalDirect(); loadItems(); showToast(id ? '✅ 已更新' : '✅ 已新增'); }
+  else showToast('❌ 操作失敗');
+}
+
+async function deleteItem(id, name) {
+  if (!confirm(`確定要刪除「${name}」嗎？`)) return;
+  const res = await fetch(`/api/menu/${id}`, { method:'DELETE' });
+  const d = await res.json();
+  if (d.ok) { loadItems(); showToast('🗑 已刪除'); }
+}
+
+// ── 庫存 ──
+async function loadInventory() {
+  const rows = await fetch('/api/inventory').then(r=>r.json());
+  allItems = rows;
+  const grid = document.getElementById('inv-grid');
+  if (!rows.length) { grid.innerHTML = '<div class="empty-msg">尚無品項</div>'; return; }
+  grid.innerHTML = rows.map(r => {
+    const cls = r.quantity >= 5 ? 'green' : r.quantity >= 1 ? 'orange' : 'red';
+    return `<div class="inv-card">
+      <div class="inv-emoji">${r.emoji}</div>
+      <div class="inv-name">${r.name}</div>
+      <div class="inv-qty ${cls}">${r.quantity}</div>
+      <div class="inv-btns">
+        <button class="btn btn-ghost btn-sm" onclick="openInvModal(${r.id},'${r.name}','out')">出庫 −</button>
+        <button class="btn btn-primary btn-sm" onclick="openInvModal(${r.id},'${r.name}','in')">進庫 ＋</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openInvModal(id, name, action) {
+  document.getElementById('inv-item-id').value = id;
+  document.getElementById('inv-action').value  = action;
+  document.getElementById('inv-modal-title').textContent = action === 'in' ? `📦 進庫 — ${name}` : `📤 出庫 — ${name}`;
+  document.getElementById('inv-qty').value  = '';
+  document.getElementById('inv-note').value = '';
+  document.getElementById('inv-modal').classList.add('show');
+}
+function closeInvModal(e) { if (e.target.id === 'inv-modal') closeInvModalDirect(); }
+function closeInvModalDirect() { document.getElementById('inv-modal').classList.remove('show'); }
+
+async function submitInv() {
+  const id     = document.getElementById('inv-item-id').value;
+  const action = document.getElementById('inv-action').value;
+  const qty    = parseInt(document.getElementById('inv-qty').value);
+  const note   = document.getElementById('inv-note').value.trim();
+  if (!qty || qty < 1) { showToast('請輸入數量'); return; }
+
+  const url = `/api/inventory/${action}`;
+  const res = await fetch(url, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ item_id: id, quantity: qty, note })
+  });
+  const d = await res.json();
+  if (d.ok) {
+    closeInvModalDirect();
+    loadInventory();
+    showToast(action === 'in' ? `✅ 進庫 +${qty}，現有 ${d.quantity}` : `✅ 出庫 -${qty}，現有 ${d.quantity}`);
+  }
+}
+
+// ── 紀錄 ──
+async function loadLog() {
+  const rows = await fetch('/api/inventory/log').then(r=>r.json());
+  const tbody = document.getElementById('log-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">尚無紀錄</td></tr>'; return; }
+  const actionMap = { in:'進庫', out:'出庫', order:'訂單扣除' };
+  const classMap  = { in:'action-in', out:'action-out', order:'action-order' };
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td style="white-space:nowrap;font-size:12px;color:#999">${r.created_at}</td>
+    <td>${r.emoji} ${r.name}</td>
+    <td><span class="action-badge ${classMap[r.action]}">${actionMap[r.action]||r.action}</span></td>
+    <td>${r.quantity}</td>
+    <td style="color:#999;font-size:12px">${r.note||'—'}</td>
+  </tr>`).join('');
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// 初始化
+loadItems();
+</script>
+</body>
+</html>
