@@ -68,36 +68,68 @@
   }
   .badge.hidden { display: none; }
 
-  /* 點餐人選擇器 */
+  /* 點餐人選擇器（頭像版）*/
   .person-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 16px 12px;
+    gap: 20px;
+    padding: 0 20px 14px;
   }
   .person-label {
     font-size: 13px;
     font-weight: 600;
-    color: #888;
+    color: #aaa;
     white-space: nowrap;
   }
-  .person-pills { display: flex; gap: 8px; }
-  .person-pill {
-    border: 2px solid #e0d8d0;
-    padding: 7px 20px;
-    border-radius: 999px;
-    font-size: 15px;
-    font-weight: 700;
+  .person-avatars { display: flex; gap: 20px; }
+
+  .avatar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
     cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .avatar-ring {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    padding: 3px;
+    border: 3px solid #e0d8d0;
+    transition: border-color .18s, transform .15s;
     background: white;
-    color: #888;
-    transition: all .18s;
   }
-  .person-pill.active {
-    background: #e88a38;
+  .avatar-wrap.active .avatar-ring {
     border-color: #e88a38;
-    color: white;
+    transform: scale(1.08);
   }
+
+  .avatar-img {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    background: #f5c9a0;
+  }
+
+  .avatar-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #bbb;
+    transition: color .18s;
+    letter-spacing: .5px;
+  }
+  .avatar-wrap.active .avatar-name { color: #e88a38; }
+
+  /* 長按提示漣漪 */
+  @keyframes pressHint {
+    0%   { box-shadow: 0 0 0 0 rgba(232,138,56,.5); }
+    70%  { box-shadow: 0 0 0 10px rgba(232,138,56,0); }
+    100% { box-shadow: 0 0 0 0 rgba(232,138,56,0); }
+  }
+  .avatar-ring.pressing { animation: pressHint .6s ease; }
 
   /* 頁面區塊切換 */
   .page { display: none; }
@@ -453,12 +485,41 @@
   </button>
 </div>
 
-<!-- 點餐人選擇 -->
+<!-- 點餐人選擇（頭像）-->
+<input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="applyAvatar(this)">
+
 <div class="person-bar">
-  <span class="person-label">誰點的餐：</span>
-  <div class="person-pills">
-    <button class="person-pill active" id="pill-queena" onclick="selectPerson('QUEENA')">👧 QUEENA</button>
-    <button class="person-pill" id="pill-ryan" onclick="selectPerson('RYAN')">👦 RYAN</button>
+  <span class="person-label">誰點的餐</span>
+  <div class="person-avatars">
+
+    <div class="avatar-wrap active" id="wrap-queena"
+         onclick="selectPerson('QUEENA')"
+         ontouchstart="startLongPress('QUEENA',this)"
+         ontouchend="cancelLongPress()"
+         ontouchmove="cancelLongPress()"
+         onmousedown="startLongPress('QUEENA',this)"
+         onmouseup="cancelLongPress()"
+         onmouseleave="cancelLongPress()">
+      <div class="avatar-ring" id="ring-queena">
+        <img class="avatar-img" id="avatar-queena" src="" alt="QUEENA">
+      </div>
+      <span class="avatar-name">QUEENA</span>
+    </div>
+
+    <div class="avatar-wrap" id="wrap-ryan"
+         onclick="selectPerson('RYAN')"
+         ontouchstart="startLongPress('RYAN',this)"
+         ontouchend="cancelLongPress()"
+         ontouchmove="cancelLongPress()"
+         onmousedown="startLongPress('RYAN',this)"
+         onmouseup="cancelLongPress()"
+         onmouseleave="cancelLongPress()">
+      <div class="avatar-ring" id="ring-ryan">
+        <img class="avatar-img" id="avatar-ryan" src="" alt="RYAN">
+      </div>
+      <span class="avatar-name">RYAN</span>
+    </div>
+
   </div>
 </div>
 
@@ -539,12 +600,93 @@ let currentItem = null;
 let qty = 1;
 let cart = [];
 let currentPerson = 'QUEENA';
+let longPressTimer = null;
+let longPressTarget = null;   // 'QUEENA' | 'RYAN'
+
+// ── 頭像：從 localStorage 載入 ──
+function loadAvatars() {
+  ['QUEENA','RYAN'].forEach(name => {
+    const saved = localStorage.getItem(`avatar_${name}`);
+    const img = document.getElementById(`avatar-${name.toLowerCase()}`);
+    if (saved) {
+      img.src = saved;
+    } else {
+      // 預設彩色背景 + 首字母
+      img.src = makeDefaultAvatar(name);
+    }
+  });
+}
+
+function makeDefaultAvatar(name) {
+  const colors = { QUEENA: ['#f9a8d4','#be185d'], RYAN: ['#93c5fd','#1d4ed8'] };
+  const [bg, fg] = colors[name] || ['#fcd34d','#92400e'];
+  const c = document.createElement('canvas');
+  c.width = c.height = 120;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.arc(60,60,60,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = fg;
+  ctx.font = 'bold 52px -apple-system, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(name[0], 60, 62);
+  return c.toDataURL();
+}
+
+// ── 長按更換頭像 ──
+function startLongPress(name, el) {
+  longPressTarget = name;
+  const ring = el.querySelector('.avatar-ring');
+  ring.classList.add('pressing');
+  longPressTimer = setTimeout(() => {
+    ring.classList.remove('pressing');
+    openAvatarPicker(name);
+  }, 600);
+}
+
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  document.querySelectorAll('.avatar-ring').forEach(r => r.classList.remove('pressing'));
+}
+
+function openAvatarPicker(name) {
+  longPressTarget = name;
+  const input = document.getElementById('avatar-file-input');
+  input.value = '';
+  input.click();
+}
+
+function applyAvatar(input) {
+  const file = input.files[0];
+  if (!file || !longPressTarget) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // 壓縮成正方形縮圖
+    const img = new Image();
+    img.onload = () => {
+      const size = 240;
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      // 裁正方形中心
+      const s = Math.min(img.width, img.height);
+      const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+      ctx.beginPath(); ctx.arc(size/2,size/2,size/2,0,Math.PI*2); ctx.clip();
+      ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+      const dataURL = c.toDataURL('image/jpeg', 0.82);
+      document.getElementById(`avatar-${longPressTarget.toLowerCase()}`).src = dataURL;
+      localStorage.setItem(`avatar_${longPressTarget}`, dataURL);
+      showToast(`${longPressTarget} 頭像已更新！`);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 // ── 點餐人 ──
 function selectPerson(name) {
   currentPerson = name;
-  document.getElementById('pill-queena').classList.toggle('active', name === 'QUEENA');
-  document.getElementById('pill-ryan').classList.toggle('active', name === 'RYAN');
+  document.getElementById('wrap-queena').classList.toggle('active', name === 'QUEENA');
+  document.getElementById('wrap-ryan').classList.toggle('active', name === 'RYAN');
 }
 
 // ── Tab 切換 ──
@@ -757,6 +899,7 @@ function showToast(msg) {
 }
 
 // 初始化
+loadAvatars();
 loadMenu();
 </script>
 </body>
