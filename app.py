@@ -104,7 +104,6 @@ def init_db():
     con.close()
 
 init_db()
-restore_from_jsonbin()
 
 # ── 工具 ──────────────────────────────────────────────
 def row_list(rows): return [dict(r) for r in rows]
@@ -167,6 +166,8 @@ def restore_from_jsonbin():
         print(f"✅ Restored {len(items)} items from JSONBin")
     except Exception as e:
         print("JSONBin restore error:", e)
+
+restore_from_jsonbin()
 
 def send_telegram(text):
     try:
