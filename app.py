@@ -192,7 +192,7 @@ def admin():
 @app.route("/health")
 def health(): return "ok", 200
 
-@app.route("/api/sync-test")
+@app.route("/api/sync-test", methods=["GET"])
 def api_sync_test():
     """手動觸發 JSONBin 同步並回傳結果（debug 用）"""
     try:
