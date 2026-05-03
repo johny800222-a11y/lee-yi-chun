@@ -192,6 +192,34 @@ def admin():
 @app.route("/health")
 def health(): return "ok", 200
 
+@app.route("/api/sync-test")
+def api_sync_test():
+    """手動觸發 JSONBin 同步並回傳結果（debug 用）"""
+    try:
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            "SELECT id,name,price,desc,emoji,image,category,active FROM menu_items"
+        ).fetchall()
+        con.close()
+        data = {"menu_items": [dict(r) for r in rows]}
+        resp = requests.put(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}",
+            headers={"Content-Type": "application/json",
+                     "X-Master-Key": JSONBIN_API_KEY},
+            json=data, timeout=8
+        )
+        return jsonify({
+            "ok": resp.status_code == 200,
+            "status": resp.status_code,
+            "items_count": len(data["menu_items"]),
+            "bin_id": JSONBIN_BIN_ID,
+            "key_prefix": JSONBIN_API_KEY[:12] + "...",
+            "response": resp.text[:300]
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
 # ── 品項 API ──────────────────────────────────────────
 @app.route("/api/menu", methods=["GET"])
 def api_menu():
