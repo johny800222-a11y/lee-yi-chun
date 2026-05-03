@@ -119,25 +119,31 @@ def sync_to_jsonbin():
         ).fetchall()
         con.close()
         data = {"menu_items": [dict(r) for r in rows]}
-        requests.put(
+        key = JSONBIN_API_KEY
+        print(f"[JSONBin] syncing {len(data['menu_items'])} items, key_prefix={key[:10]}..., bin={JSONBIN_BIN_ID}")
+        resp = requests.put(
             f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}",
             headers={"Content-Type": "application/json",
-                     "X-Master-Key": JSONBIN_API_KEY},
+                     "X-Master-Key": key},
             json=data, timeout=8
         )
+        print(f"[JSONBin] sync response: {resp.status_code} {resp.text[:200]}")
     except Exception as e:
         print("JSONBin sync error:", e)
 
 def restore_from_jsonbin():
     """啟動時從 JSONBin 拉回 menu_items 並 upsert 進 SQLite"""
     try:
+        print(f"[JSONBin] restoring from bin={JSONBIN_BIN_ID}")
         r = requests.get(
             f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest",
             headers={"X-Master-Key": JSONBIN_API_KEY},
             timeout=8
         )
+        print(f"[JSONBin] restore response: {r.status_code}")
         items = r.json().get("record", {}).get("menu_items", [])
         if not items:
+            print("[JSONBin] no items to restore")
             return
         con = sqlite3.connect(DB_PATH)
         cur = con.cursor()
