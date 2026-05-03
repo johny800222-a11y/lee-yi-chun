@@ -158,8 +158,31 @@ def _fetch_og_image(url: str, timeout: int = 4) -> str:
 def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text or "").strip()
 
+def _translate_zh(text: str, timeout: int = 6) -> str:
+    """用 Google Translate 免費 API 翻譯成繁體中文，失敗回傳原文"""
+    if not text:
+        return text
+    # 若已是中文（含超過 30% 中文字元）則不翻譯
+    zh_count = sum(1 for c in text if '一' <= c <= '鿿')
+    if zh_count / max(len(text), 1) > 0.3:
+        return text
+    try:
+        import urllib.parse
+        url = (
+            "https://translate.googleapis.com/translate_a/single"
+            f"?client=gtx&sl=auto&tl=zh-TW&dt=t&q={urllib.parse.quote(text)}"
+        )
+        r = _requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"})
+        if r.ok:
+            data = r.json()
+            translated = "".join(seg[0] for seg in data[0] if seg[0])
+            return translated or text
+    except Exception:
+        pass
+    return text
+
 def _fetch_news() -> list:
-    """抓取所有 RSS，回傳最多 10 則新聞（財經+地緣政治混合）"""
+    """抓取所有 RSS，自動翻譯成繁體中文，回傳最多 10 則新聞"""
     items: list = []
     seen_titles: set = set()
 
@@ -172,7 +195,7 @@ def _fetch_news() -> list:
                     continue
                 seen_titles.add(title)
                 link  = entry.get("link", "")
-                summary = _strip_html(entry.get("summary", entry.get("description", "")))[:200]
+                summary = _strip_html(entry.get("summary", entry.get("description", "")))[:300]
                 # 嘗試從 entry 直接取圖，找不到才抓 OG
                 image = ""
                 media = entry.get("media_content") or entry.get("media_thumbnail")
@@ -197,6 +220,11 @@ def _fetch_news() -> list:
             continue
         if len(items) >= 12:
             break
+
+    # 翻譯標題和摘要（批次，避免過多請求）
+    for item in items:
+        item["title"]   = _translate_zh(item["title"])
+        item["summary"] = _translate_zh(item["summary"])
 
     # 對沒有圖的前 6 則，嘗試抓 OG（最多 6 次，避免太慢）
     no_img = [i for i in items if not i["image"]][:6]
