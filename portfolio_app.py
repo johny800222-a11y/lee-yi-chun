@@ -8,10 +8,12 @@
 from __future__ import annotations
 import json
 import os
+import re
 import time
 from pathlib import Path
 from datetime import datetime, timezone
 
+import feedparser
 import requests as _requests
 from flask import Flask, jsonify, request, send_from_directory, Response
 
@@ -116,6 +118,107 @@ def to_binance_sym(ccxt_sym: str) -> str:
     """'1000PEPE/USDT:USDT' → '1000PEPEUSDT'"""
     base = ccxt_sym.split("/")[0]
     return base + "USDT"
+
+# ─────────────────────────────────────────────────────────────────
+# 每日新聞早報
+# ─────────────────────────────────────────────────────────────────
+NEWS_RSS_FEEDS = [
+    # 財經
+    ("https://feeds.reuters.com/reuters/businessNews", "財經"),
+    ("https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US", "財經"),
+    ("https://news.google.com/rss/search?q=Fed+interest+rate+OR+stock+market+OR+cryptocurrency&hl=zh-TW&gl=TW&ceid=TW:zh-Hant", "財經"),
+    # 地緣政治
+    ("https://news.google.com/rss/search?q=Ukraine+Russia+OR+China+Taiwan+OR+Middle+East+war&hl=zh-TW&gl=TW&ceid=TW:zh-Hant", "地緣政治"),
+    ("https://feeds.reuters.com/Reuters/worldNews", "地緣政治"),
+]
+
+_news_cache: list = []
+_news_cache_ts: float = 0.0
+NEWS_CACHE_TTL = 3600  # 1 小時
+
+TOPIC_EMOJI = {
+    "財經": "💰",
+    "地緣政治": "🌍",
+}
+
+def _fetch_og_image(url: str, timeout: int = 4) -> str:
+    """從文章 URL 擷取 og:image，失敗回傳空字串"""
+    try:
+        r = _requests.get(url, timeout=timeout,
+                          headers={"User-Agent": "Mozilla/5.0"}, allow_redirects=True)
+        if not r.ok:
+            return ""
+        m = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', r.text, re.I)
+        if not m:
+            m = re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', r.text, re.I)
+        return m.group(1) if m else ""
+    except Exception:
+        return ""
+
+def _strip_html(text: str) -> str:
+    return re.sub(r"<[^>]+>", "", text or "").strip()
+
+def _fetch_news() -> list:
+    """抓取所有 RSS，回傳最多 10 則新聞（財經+地緣政治混合）"""
+    items: list = []
+    seen_titles: set = set()
+
+    for feed_url, topic in NEWS_RSS_FEEDS:
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:4]:
+                title = _strip_html(entry.get("title", "")).strip()
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                link  = entry.get("link", "")
+                summary = _strip_html(entry.get("summary", entry.get("description", "")))[:200]
+                # 嘗試從 entry 直接取圖，找不到才抓 OG
+                image = ""
+                media = entry.get("media_content") or entry.get("media_thumbnail")
+                if media and isinstance(media, list) and media[0].get("url"):
+                    image = media[0]["url"]
+                elif entry.get("enclosures"):
+                    enc = entry["enclosures"][0]
+                    if enc.get("type", "").startswith("image"):
+                        image = enc.get("href", "")
+                items.append({
+                    "title":   title,
+                    "summary": summary,
+                    "link":    link,
+                    "topic":   topic,
+                    "emoji":   TOPIC_EMOJI.get(topic, "📰"),
+                    "image":   image,
+                    "ts":      time.time(),
+                })
+                if len(items) >= 12:
+                    break
+        except Exception:
+            continue
+        if len(items) >= 12:
+            break
+
+    # 對沒有圖的前 6 則，嘗試抓 OG（最多 6 次，避免太慢）
+    no_img = [i for i in items if not i["image"]][:6]
+    for item in no_img:
+        if item["link"]:
+            item["image"] = _fetch_og_image(item["link"])
+
+    return items[:10]
+
+def get_news() -> list:
+    """取新聞（記憶體快取 1 小時）"""
+    global _news_cache, _news_cache_ts
+    if _news_cache and time.time() - _news_cache_ts < NEWS_CACHE_TTL:
+        return _news_cache
+    try:
+        items = _fetch_news()
+        if items:
+            _news_cache = items
+            _news_cache_ts = time.time()
+    except Exception:
+        pass
+    return _news_cache
 
 # ─────────────────────────────────────────────────────────────────
 # API 路由
@@ -260,6 +363,25 @@ def delete_manual(pos_id):
     return jsonify({"ok": len(data["positions"]) < before})
 
 
+@app.route("/api/news")
+def api_news():
+    """每日新聞早報（記憶體快取 1 小時）"""
+    return jsonify({
+        "items": get_news(),
+        "cached_at": _news_cache_ts,
+        "next_refresh": _news_cache_ts + NEWS_CACHE_TTL,
+    })
+
+
+@app.route("/api/news/refresh", methods=["POST", "GET"])
+def api_news_refresh():
+    """強制刷新新聞快取（供 Scheduled Task 喚醒用）"""
+    global _news_cache, _news_cache_ts
+    _news_cache_ts = 0  # 清除快取 → 下次 get_news() 強制重抓
+    items = get_news()
+    return jsonify({"ok": True, "count": len(items)})
+
+
 # ─────────────────────────────────────────────────────────────────
 # 前端 HTML（PWA）
 # ─────────────────────────────────────────────────────────────────
@@ -382,9 +504,56 @@ HTML = r"""<!DOCTYPE html>
   .trade-reason { font-size: 12px; color: var(--sub); margin-top: 2px; }
   .trade-pnl { text-align: right; font-size: 15px; font-weight: 600; }
   .trade-ts { font-size: 11px; color: var(--sub); margin-top: 2px; }
+
+  /* ── News Carousel ── */
+  .news-wrap { padding: 16px 20px 0; }
+  .news-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .news-header h2 { font-size: 18px; font-weight: 700; }
+  .news-dots { display: flex; gap: 5px; }
+  .news-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sep); transition: all .3s; }
+  .news-dot.active { width: 16px; border-radius: 3px; background: var(--blue); }
+
+  .news-viewport { overflow: hidden; border-radius: var(--radius); cursor: grab; }
+  .news-viewport:active { cursor: grabbing; }
+  .news-track { display: flex; transition: transform .35s cubic-bezier(.4,0,.2,1); will-change: transform; }
+
+  .news-card {
+    min-width: 100%; background: var(--card); border-radius: var(--radius);
+    overflow: hidden; position: relative; user-select: none;
+  }
+  .news-img { width: 100%; height: 180px; object-fit: cover; display: block; background: var(--card2); }
+  .news-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg, #1c2a3a 0%, #0d1b2a 100%);
+    display: flex; align-items: center; justify-content: center; font-size: 48px; }
+  .news-body { padding: 14px 16px 16px; }
+  .news-topic-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px;
+    border-radius: 20px; margin-bottom: 8px; }
+  .news-topic-財經 { background: rgba(48,209,88,.18); color: var(--green); }
+  .news-topic-地緣政治 { background: rgba(255,159,10,.18); color: var(--orange); }
+  .news-title { font-size: 15px; font-weight: 600; line-height: 1.45; margin-bottom: 7px; }
+  .news-summary { font-size: 13px; color: var(--sub); line-height: 1.5; display: -webkit-box;
+    -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .news-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .news-read-btn { font-size: 12px; color: var(--blue); text-decoration: none; font-weight: 500; }
+  .news-counter { font-size: 12px; color: var(--sub); }
+
+  .news-loading { text-align: center; padding: 30px; color: var(--sub); font-size: 14px; }
+  .news-error { text-align: center; padding: 20px; color: var(--red); font-size: 13px; }
 </style>
 </head>
 <body>
+
+<!-- ── 每日新聞早報 ── -->
+<div class="news-wrap">
+  <div class="news-header">
+    <h2>📰 今日早報</h2>
+    <div class="news-dots" id="news-dots"></div>
+  </div>
+  <div class="news-viewport" id="news-viewport">
+    <div class="news-track" id="news-track">
+      <div class="news-loading">⏳ 載入新聞中…</div>
+    </div>
+  </div>
+</div>
 
 <div class="header">
   <h1>📊 投資組合</h1>
@@ -740,10 +909,91 @@ document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) closeModal();
 });
 
+// ── 新聞輪播 ──
+let newsItems = [];
+let newsIdx   = 0;
+let newsDragX = 0;
+let newsDragging = false;
+
+async function loadNews() {
+  try {
+    const data = await fetch('/api/news').then(r => r.json());
+    newsItems = data.items || [];
+    if (newsItems.length === 0) throw new Error('no items');
+    renderNews();
+  } catch(e) {
+    document.getElementById('news-track').innerHTML =
+      '<div class="news-error">⚠️ 新聞暫時無法載入，稍後自動重試</div>';
+  }
+}
+
+function renderNews() {
+  const track = document.getElementById('news-track');
+  const dots  = document.getElementById('news-dots');
+  track.innerHTML = newsItems.map((item, i) => {
+    const imgHtml = item.image
+      ? `<img class="news-img" src="${item.image}" loading="lazy" onerror="this.parentNode.replaceChild(Object.assign(document.createElement('div'),{className:'news-img-placeholder',textContent:item.emoji||'📰'}),this)">`
+      : `<div class="news-img-placeholder">${item.emoji || '📰'}</div>`;
+    return `<div class="news-card">
+      ${imgHtml}
+      <div class="news-body">
+        <span class="news-topic-badge news-topic-${item.topic}">${item.emoji} ${item.topic}</span>
+        <div class="news-title">${item.title}</div>
+        <div class="news-summary">${item.summary || ''}</div>
+        <div class="news-footer">
+          <a class="news-read-btn" href="${item.link}" target="_blank" rel="noopener">閱讀全文 →</a>
+          <span class="news-counter">${i+1} / ${newsItems.length}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  dots.innerHTML = newsItems.map((_, i) =>
+    `<div class="news-dot${i===0?' active':''}" onclick="goNews(${i})"></div>`
+  ).join('');
+
+  goNews(0);
+  setupNewsSwipe();
+}
+
+function goNews(idx) {
+  newsIdx = Math.max(0, Math.min(idx, newsItems.length - 1));
+  document.getElementById('news-track').style.transform = `translateX(-${newsIdx * 100}%)`;
+  document.querySelectorAll('.news-dot').forEach((d, i) =>
+    d.classList.toggle('active', i === newsIdx));
+}
+
+function setupNewsSwipe() {
+  const vp = document.getElementById('news-viewport');
+  if (!vp || vp._swipeReady) return;
+  vp._swipeReady = true;
+
+  // Touch
+  vp.addEventListener('touchstart', e => { newsDragX = e.touches[0].clientX; newsDragging = true; }, {passive: true});
+  vp.addEventListener('touchend',   e => {
+    if (!newsDragging) return;
+    const dx = e.changedTouches[0].clientX - newsDragX;
+    if (Math.abs(dx) > 40) dx < 0 ? goNews(newsIdx + 1) : goNews(newsIdx - 1);
+    newsDragging = false;
+  }, {passive: true});
+
+  // Mouse drag
+  vp.addEventListener('mousedown',  e => { newsDragX = e.clientX; newsDragging = true; });
+  vp.addEventListener('mouseup',    e => {
+    if (!newsDragging) return;
+    const dx = e.clientX - newsDragX;
+    if (Math.abs(dx) > 40) dx < 0 ? goNews(newsIdx + 1) : goNews(newsIdx - 1);
+    newsDragging = false;
+  });
+  vp.addEventListener('mouseleave', () => { newsDragging = false; });
+}
+
 // 啟動
 loadAll();
-// 每 30 秒自動更新
+loadNews();
+// 每 30 秒自動更新資產，每 1 小時更新新聞
 setInterval(loadAll, 30000);
+setInterval(loadNews, 3600000);
 </script>
 </body>
 </html>"""
