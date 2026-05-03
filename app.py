@@ -11,6 +11,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "breakfast.db")
 TG_TOKEN   = "8727554075:AAFEJM-6vCxgDvCGYn22potnDH8gQ2JbI0U"
 TG_CHAT_ID = "1768177615"
+JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY", "$2a$10$Paag0S516c7p2hVgS4quJ.z6QfZugOE5rHOkuDfGxfWOmCP8x5iN6")
+JSONBIN_BIN_ID  = os.environ.get("JSONBIN_BIN_ID_BREAKFAST", "69f6a7cc36566621a81b4010")
 
 # ── CORS ──────────────────────────────────────────────
 def cors(resp):
@@ -102,9 +104,63 @@ def init_db():
     con.close()
 
 init_db()
+restore_from_jsonbin()
 
 # ── 工具 ──────────────────────────────────────────────
 def row_list(rows): return [dict(r) for r in rows]
+
+def sync_to_jsonbin():
+    """把 menu_items 同步到 JSONBin（每次寫入後呼叫）"""
+    try:
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            "SELECT id,name,price,desc,emoji,image,category,active FROM menu_items"
+        ).fetchall()
+        con.close()
+        data = {"menu_items": [dict(r) for r in rows]}
+        requests.put(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}",
+            headers={"Content-Type": "application/json",
+                     "X-Master-Key": JSONBIN_API_KEY},
+            json=data, timeout=8
+        )
+    except Exception as e:
+        print("JSONBin sync error:", e)
+
+def restore_from_jsonbin():
+    """啟動時從 JSONBin 拉回 menu_items 並 upsert 進 SQLite"""
+    try:
+        r = requests.get(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest",
+            headers={"X-Master-Key": JSONBIN_API_KEY},
+            timeout=8
+        )
+        items = r.json().get("record", {}).get("menu_items", [])
+        if not items:
+            return
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        for it in items:
+            cur.execute("""
+                INSERT INTO menu_items(id,name,price,desc,emoji,image,category,active)
+                VALUES(:id,:name,:price,:desc,:emoji,:image,:category,:active)
+                ON CONFLICT(id) DO UPDATE SET
+                    name=excluded.name, price=excluded.price,
+                    desc=excluded.desc, emoji=excluded.emoji,
+                    image=excluded.image, category=excluded.category,
+                    active=excluded.active
+            """, it)
+            cur.execute("""
+                INSERT INTO inventory(item_id,quantity)
+                VALUES(:id, 20)
+                ON CONFLICT(item_id) DO NOTHING
+            """, it)
+        con.commit()
+        con.close()
+        print(f"✅ Restored {len(items)} items from JSONBin")
+    except Exception as e:
+        print("JSONBin restore error:", e)
 
 def send_telegram(text):
     try:
@@ -160,6 +216,7 @@ def api_menu_add():
         db.execute("INSERT INTO inventory_log(item_id,action,quantity,note) VALUES(?,?,?,?)",
                    (item_id, "in", init_qty, "初始庫存"))
     db.commit()
+    sync_to_jsonbin()
     return jsonify({"ok": True, "id": item_id})
 
 @app.route("/api/menu/<int:item_id>", methods=["PUT"])
@@ -177,6 +234,7 @@ def api_menu_update(item_id):
     vals.append(item_id)
     db.execute(f"UPDATE menu_items SET {','.join(fields)} WHERE id=?", vals)
     db.commit()
+    sync_to_jsonbin()
     return jsonify({"ok": True})
 
 @app.route("/api/menu/<int:item_id>", methods=["DELETE"])
@@ -184,6 +242,7 @@ def api_menu_delete(item_id):
     db = get_db()
     db.execute("UPDATE menu_items SET active=0 WHERE id=?", (item_id,))
     db.commit()
+    sync_to_jsonbin()
     return jsonify({"ok": True})
 
 # ── 庫存 API ──────────────────────────────────────────
