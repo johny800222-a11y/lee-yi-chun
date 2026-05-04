@@ -18,11 +18,13 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 # ── 路徑 & 雲端設定 ─────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent
 BOT_STATE_FILE  = BASE_DIR / "ema99_bot_state.json"
+NFES_STATE_FILE = BASE_DIR / "nfes_bot_state.json"
 MANUAL_FILE     = BASE_DIR / "portfolio_manual.json"
 
 # JSONBin — 讓 Render 雲端也能讀到 bot 狀態
-JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY", "")
-JSONBIN_BIN_ID  = os.getenv("JSONBIN_BIN_ID",  "")
+JSONBIN_API_KEY       = os.getenv("JSONBIN_API_KEY", "")
+JSONBIN_BIN_ID        = os.getenv("JSONBIN_BIN_ID",  "")      # EMA99 bot
+JSONBIN_NFES_BIN_ID   = os.getenv("JSONBIN_NFES_BIN_ID", "")  # NFES bot
 # 手動持倉存在第二個 bin（可選，沒設就存本機 JSON）
 JSONBIN_MANUAL_BIN_ID = os.getenv("JSONBIN_MANUAL_BIN_ID", "")
 
@@ -132,20 +134,18 @@ def load_bot_state() -> dict:
         return json.loads(BOT_STATE_FILE.read_text())
     return {}
 
-@app.route("/api/crypto")
-def api_crypto():
-    """讀取 bot state（本機或 JSONBin），回傳加密幣持倉"""
-    state = load_bot_state()
-    if not state:
-        return jsonify({"positions": [], "capital": 0, "trades": [], "source": "none"})
-    positions = state.get("positions", {})
-    trades    = state.get("trades", [])
-    capital   = state.get("capital", 0)
-    last_run  = state.get("last_run", "")
+def load_nfes_state() -> dict:
+    """讀取 NFES bot 狀態（本機 JSON 或 JSONBin）"""
+    if JSONBIN_API_KEY and JSONBIN_NFES_BIN_ID:
+        data = _jsonbin_get(JSONBIN_NFES_BIN_ID)
+        if data:
+            return data
+    if NFES_STATE_FILE.exists():
+        return json.loads(NFES_STATE_FILE.read_text())
+    return {}
 
-    # 取得即時價格
-    live_prices = get_live_prices()
-
+def _build_positions(positions: dict, strategy: str, live_prices: dict) -> list:
+    """將 bot state positions dict 轉換為前端用的 list（含策略標籤）"""
     result = []
     for sym, p in positions.items():
         entry    = p.get("entry_px", 0)
@@ -155,23 +155,32 @@ def api_crypto():
         notional = p.get("notional", margin)
         partial  = p.get("partial", False)
         entry_ts = p.get("entry_ts", "")
+        side     = p.get("side", "long")
 
-        # 即時價 > 存檔價，優先用即時
         bsym      = to_binance_sym(sym)
         live_cur  = live_prices.get(bsym)
         cur       = live_cur if live_cur else p.get("cur_px", entry)
         using_live = live_cur is not None
 
-        pnl_pct = (cur - entry) / entry * 100 if entry else 0
-        pnl_usd = (cur - entry) * p.get("qty", 0)
-        sl_triggered = cur < sl  # 即時價跌破止損
+        if entry:
+            pnl_pct = (cur - entry) / entry * 100 * (1 if side == "long" else -1)
+            pnl_usd = (cur - entry) * p.get("qty", 0) * (1 if side == "long" else -1)
+        else:
+            pnl_pct = pnl_usd = 0
+
+        sl_triggered = (cur < sl) if side == "long" else (cur > sl)
 
         result.append({
             "sym"         : fmt_sym(sym),
             "full_sym"    : sym,
+            "strategy"    : strategy,
+            "side"        : side,
             "entry_px"    : round(entry, 8),
             "cur_px"      : round(cur, 8),
             "sl"          : round(sl, 8),
+            "tp1"         : round(p.get("tp1", 0), 8),
+            "tp2"         : round(p.get("tp2", 0), 8),
+            "tp3"         : round(p.get("tp3", 0), 8),
             "margin"      : round(margin, 2),
             "notional"    : round(notional, 2),
             "lev"         : lev,
@@ -182,16 +191,60 @@ def api_crypto():
             "using_live"  : using_live,
             "sl_triggered": sl_triggered,
         })
+    return result
 
-    # 近期交易（最新 10 筆）
-    recent = sorted(trades, key=lambda x: x.get("exit_ts",""), reverse=True)[:10]
-    for t in recent:
-        t["sym"] = fmt_sym(t.get("sym",""))
+
+@app.route("/api/crypto")
+def api_crypto():
+    """讀取雙策略 bot state，回傳合併加密幣持倉（共用資金）"""
+    ema_state  = load_bot_state()
+    nfes_state = load_nfes_state()
+    live_prices = get_live_prices()
+
+    # ── EMA99 持倉 ────────────────────────────────────────────
+    ema_positions = _build_positions(
+        ema_state.get("positions", {}),
+        strategy  = "EMA99",
+        live_prices = live_prices,
+    )
+    ema_trades  = ema_state.get("trades", [])
+    ema_capital = ema_state.get("capital", 0)
+    ema_last    = ema_state.get("last_run", "")
+
+    # ── NFES 持倉 ─────────────────────────────────────────────
+    nfes_positions = _build_positions(
+        nfes_state.get("positions", {}),
+        strategy  = nfes_state.get("strategy", "NFES 強化版"),
+        live_prices = live_prices,
+    )
+    nfes_trades = nfes_state.get("trades", [])
+    nfes_last   = nfes_state.get("last_run", "")
+
+    # ── 合併（共用同一個 Binance 帳號資金）────────────────────
+    # capital = EMA99 state 裡的本金（兩策略共用同一帳號，不重複加）
+    all_positions = ema_positions + nfes_positions
+
+    # 合併 trades，標記策略名稱，最新 20 筆
+    all_trades = []
+    for t in ema_trades:
+        tc = dict(t)
+        tc["sym"]      = fmt_sym(tc.get("sym", ""))
+        tc["strategy"] = tc.get("strategy", "EMA99")
+        all_trades.append(tc)
+    for t in nfes_trades:
+        tc = dict(t)
+        tc["sym"]      = fmt_sym(tc.get("sym", ""))
+        tc["strategy"] = tc.get("strategy", "NFES 強化版")
+        all_trades.append(tc)
+    recent = sorted(all_trades, key=lambda x: x.get("exit_ts", ""), reverse=True)[:20]
+
+    # last_run = 兩者取較新的
+    last_run = max(ema_last, nfes_last) if ema_last and nfes_last else (ema_last or nfes_last)
 
     source = "jsonbin" if (JSONBIN_API_KEY and JSONBIN_BIN_ID) else "local"
     return jsonify({
-        "positions"    : result,
-        "capital"      : round(capital, 2),
+        "positions"    : all_positions,
+        "capital"      : round(ema_capital, 2),   # 共用資金，取 EMA99 的本金欄位
         "last_run"     : last_run,
         "recent_trades": recent,
         "source"       : source,
@@ -312,6 +365,12 @@ HTML = r"""<!DOCTYPE html>
          background: var(--card2); color: var(--sub); border: none; cursor: pointer; transition: all .2s; }
   .tab.active { background: var(--blue); color: #fff; }
 
+  /* ── Strategy Badge ── */
+  .strategy-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+                  margin-right: 6px; letter-spacing: .3px; }
+  .strat-ema99  { background: rgba(10,132,255,.2); color: var(--blue); }
+  .strat-nfes   { background: rgba(191,90,242,.25); color: var(--purple); }
+
   /* ── Section ── */
   .section { padding: 0 20px; margin-bottom: 28px; }
   .section-title { font-size: 22px; font-weight: 700; margin-bottom: 12px; display: flex;
@@ -413,6 +472,8 @@ HTML = r"""<!DOCTYPE html>
 <div class="tabs">
   <button class="tab active" onclick="switchTab('all', this)">全部</button>
   <button class="tab" onclick="switchTab('CRYPTO', this)">🔷 加密</button>
+  <button class="tab" onclick="switchTab('EMA99', this)">📈 EMA99</button>
+  <button class="tab" onclick="switchTab('NFES', this)">🔮 NFES強化版</button>
   <button class="tab" onclick="switchTab('TW', this)">🇹🇼 台股</button>
   <button class="tab" onclick="switchTab('US', this)">🇺🇸 美股</button>
   <button class="tab" onclick="switchTab('ETF', this)">📦 ETF</button>
@@ -501,11 +562,17 @@ function renderTab(tab) {
 
   let html = '';
 
-  // 加密幣區塊
-  if (tab === 'all' || tab === 'CRYPTO') {
-    const positions = cryptoData.positions;
+  // 加密幣區塊（可按策略篩選）
+  if (tab === 'all' || tab === 'CRYPTO' || tab === 'EMA99' || tab === 'NFES') {
+    let positions = cryptoData.positions;
+    if (tab === 'EMA99') positions = positions.filter(p => p.strategy === 'EMA99');
+    if (tab === 'NFES')  positions = positions.filter(p => p.strategy && p.strategy.includes('NFES'));
+
+    const sectionTitle = tab === 'EMA99'  ? '📈 EMA99 持倉'
+                       : tab === 'NFES'   ? '🔮 NFES 強化版持倉'
+                       : '🔷 加密幣持倉';
     html += `<div class="section">
-      <div class="section-title"><span>🔷 加密幣持倉</span></div>`;
+      <div class="section-title"><span>${sectionTitle}</span></div>`;
     if (!positions.length) {
       html += `<div class="empty"><div class="icon">📭</div><div>目前無持倉</div></div>`;
     } else {
@@ -544,16 +611,33 @@ function renderTab(tab) {
   el.innerHTML = html;
 }
 
+function strategyTag(strategy) {
+  if (!strategy) return '';
+  const cls = strategy.includes('NFES') ? 'strat-nfes' : 'strat-ema99';
+  return `<span class="strategy-tag ${cls}">${strategy}</span>`;
+}
+
 function renderCryptoCard(p) {
   const pnlColor   = p.pnl_pct >= 0 ? 'green' : 'red';
   const pnlSign    = p.pnl_pct >= 0 ? '▲' : '▼';
+  const isLong     = (p.side || 'long') === 'long';
   const slPct      = p.entry_px ? ((p.sl - p.entry_px) / p.entry_px * 100).toFixed(1) : 0;
   const liveTag    = p.using_live ? '🟢 即時' : '🟡 存檔';
   const cardBorder = p.sl_triggered ? 'border:1px solid rgba(255,69,58,.5);' : '';
+  const dirLabel   = isLong ? '<span style="color:var(--green)">▲ LONG</span>' : '<span style="color:var(--red)">▼ SHORT</span>';
+  // TP 目標（NFES 才有 tp1/tp2/tp3）
+  const tpHtml = (p.tp1 && p.tp1 > 0) ? `
+    <div class="divider"></div>
+    <div class="pos-row">
+      <div class="pos-item"><span class="lbl">🎯 TP1</span><span class="val" style="color:var(--green)">${fmtPx(p.tp1)}</span></div>
+      <div class="pos-item" style="text-align:center"><span class="lbl">TP2</span><span class="val" style="color:var(--green)">${fmtPx(p.tp2)}</span></div>
+      <div class="pos-item" style="text-align:right"><span class="lbl">TP3</span><span class="val" style="color:var(--green)">${fmtPx(p.tp3)}</span></div>
+    </div>` : '';
+
   return `<div class="pos-card" style="${cardBorder}">
     <div class="pos-top">
-      <div class="pos-sym">${p.sym} ${p.sl_triggered ? '⚠️' : ''}</div>
-      <span class="pos-badge badge-crypto">加密 ${p.lev}×</span>
+      <div class="pos-sym">${strategyTag(p.strategy)}${p.sym} ${p.sl_triggered ? '⚠️' : ''}</div>
+      <span class="pos-badge badge-crypto">${dirLabel} ${p.lev}×</span>
     </div>
     <div class="pos-row">
       <div class="pos-item">
@@ -580,6 +664,7 @@ function renderCryptoCard(p) {
         <span class="val">$${fmt(p.margin)}</span>
       </div>
     </div>
+    ${tpHtml}
     <div class="pos-footer">
       ${p.partial ? '<span class="tag partial">50% 已出場</span>' : ''}
       ${p.sl_triggered ? '<span class="tag" style="background:rgba(255,69,58,.2);color:var(--red)">⚠️ 止損觸發</span>' : ''}
@@ -641,7 +726,7 @@ function renderManualCard(p, market) {
 
 function renderTrades() {
   const trades = cryptoData.recent_trades || [];
-  let html = `<div class="section"><div class="section-title">📋 近期交易（加密）</div>`;
+  let html = `<div class="section"><div class="section-title">📋 近期交易（EMA99 + NFES 強化版）</div>`;
   if (!trades.length) {
     html += `<div class="empty"><div class="icon">📭</div><div>尚無交易記錄</div></div>`;
   } else {
@@ -653,9 +738,11 @@ function renderTrades() {
       const reasonLabel = {
         'partial_tp':'部分止盈', 'stop_loss':'止損', 'trail_stop':'移動止損', 'breakeven':'保本出場'
       }[t.reason] || t.reason;
+      const stratCls = t.strategy && t.strategy.includes('NFES') ? 'strat-nfes' : 'strat-ema99';
+      const stratName = t.strategy || 'EMA99';
       html += `<div class="trade-row">
         <div>
-          <div class="trade-sym">${t.sym}</div>
+          <div class="trade-sym"><span class="strategy-tag ${stratCls}">${stratName}</span>${t.sym}</div>
           <div class="trade-reason">${reasonLabel}</div>
         </div>
         <div>
