@@ -72,6 +72,11 @@ BREAKEVEN_PCT   = 0.05
 TRAIL_ATR_MULT  = 1.5
 TAKER_FEE       = 0.0005
 
+# ── 強化參數（2026-05 月度檢討新增）──────────────────────────
+VOL_MA_N        = 20     # 成交量均線長度
+VOL_MULT        = 1.3    # 突破 K 棒成交量需 > VOL_MA_N 均量 × VOL_MULT
+MAX_DRAWDOWN    = 0.20   # 最大回撤熔斷：資金跌破 INITIAL_CAPITAL*(1-MAX_DRAWDOWN) 停止進場
+
 # ── 檔案 ────────────────────────────────────────────────────────
 STATE_FILE      = Path("ema99_bot_state.json")
 LOG_FILE        = Path("ema99_bot.log")
@@ -323,11 +328,10 @@ def save_state(s: dict) -> None:
 # ═══════════════════════════════════════════════════════════════
 # EXCHANGE
 # ═══════════════════════════════════════════════════════════════
-def get_exchange() -> ccxt.binance:
-    return ccxt.binance({
+def get_exchange() -> ccxt.binanceusdm:
+    return ccxt.binanceusdm({
         "apiKey"         : BINANCE_KEY,
         "secret"         : BINANCE_SECRET,
-        "options"        : {"defaultType": "future"},
         "enableRateLimit": True,
     })
 
@@ -421,12 +425,13 @@ def add_4h_ind(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["ema"]  = _ema(df["close"], EMA_N)
+    df["ema"]    = _ema(df["close"], EMA_N)
     bb_u, bb_m, bb_l = _bollinger(df["close"], BB_N, BB_STD)
-    df["bb_u"] = bb_u
-    df["bb_m"] = bb_m
-    df["bb_l"] = bb_l
-    df["atr"]  = _atr(df["high"], df["low"], df["close"], ATR_N)
+    df["bb_u"]   = bb_u
+    df["bb_m"]   = bb_m
+    df["bb_l"]   = bb_l
+    df["atr"]    = _atr(df["high"], df["low"], df["close"], ATR_N)
+    df["vol_ma"] = df["volume"].rolling(VOL_MA_N).mean()   # 成交量均線
     return df
 
 
@@ -463,6 +468,11 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
             break
     if consec < WASHOUT_BARS:
         return None
+
+    # ── 成交量確認：突破 K 棒量 > VOL_MA_N 均量 × VOL_MULT ─────
+    vol_ma = bar.get("vol_ma", 0)
+    if vol_ma > 0 and bar["volume"] < vol_ma * VOL_MULT:
+        return None   # 量能不足，假突破過濾
 
     entry_px = bar["close"]
     sl = min(bar["ema"], bar["bb_l"])
@@ -664,8 +674,14 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
     state["capital"] = capital
 
     # ── 4. 進場掃描 + 觀察名單 ───────────────────────────────
-    can_enter = len(positions) < MAX_OPEN_POS and capital >= 50
-    if not can_enter:
+    # 最大回撤熔斷：資金跌破 INITIAL_CAPITAL*(1-MAX_DRAWDOWN) 時停止新進場
+    drawdown_floor = INITIAL_CAPITAL * (1 - MAX_DRAWDOWN)
+    drawdown_tripped = capital < drawdown_floor
+    if drawdown_tripped:
+        log.warning(f"⚠️ 最大回撤熔斷觸發！capital={capital:.2f} < floor={drawdown_floor:.2f}，暫停進場")
+
+    can_enter = len(positions) < MAX_OPEN_POS and capital >= 50 and not drawdown_tripped
+    if not can_enter and not drawdown_tripped:
         log.info("持倉已滿，只掃描觀察名單")
 
     watchlist: list[dict] = []
@@ -1015,13 +1031,17 @@ def main() -> None:
         )
 
         try:
-            state = load_state()
+            # ── 狀態快取：不每分鐘打 JSONBin ────────────────────
+            # 只有在 state 尚未載入（啟動/崩潰重啟）時才從雲端拉取；
+            # 正常迴圈使用 run_once 回傳的 in-memory state 即可。
             run_once(get_exchange(), tg, state, send_status=send_status)
             if send_status:
                 last_status_ts = now
         except Exception as e:
             log.exception(f"run_once error: {e}")
             tg.on_error(str(e))
+            # 發生例外時重新從雲端載入，確保狀態一致
+            state = load_state()
 
         log.info(f"等待 {SCAN_INTERVAL_SEC // 60} 分鐘後下次掃描...")
         time.sleep(SCAN_INTERVAL_SEC)
