@@ -427,6 +427,21 @@ HTML = r"""<!DOCTYPE html>
                 border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
                 font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 8px; }
 
+  /* ── Pull-to-Refresh ── */
+  .ptr-indicator {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    height: 0; overflow: hidden; background: var(--card);
+    font-size: 13px; color: var(--sub); transition: height .2s;
+    border-bottom: 1px solid var(--sep);
+  }
+  .ptr-indicator.visible { height: 44px; }
+  .ptr-indicator.refreshing { color: var(--blue); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ptr-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--blue);
+                 border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite;
+                 margin-right: 6px; }
+
   /* ── Delete swipe hint ── */
   .pos-card-wrap { position: relative; }
   .pos-del-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 70px; background: var(--red);
@@ -447,9 +462,13 @@ HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 
+<div class="ptr-indicator" id="ptr-indicator">
+  <span id="ptr-text">↓ 下拉更新</span>
+</div>
+
 <div class="header">
   <h1>📊 投資組合</h1>
-  <button class="refresh-btn" onclick="loadAll()">↻ 更新</button>
+  <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻ 更新</button>
 </div>
 
 <!-- 總覽 -->
@@ -515,7 +534,16 @@ let cryptoData  = { positions: [], capital: 0, recent_trades: [] };
 let manualData  = { positions: [] };
 let editingId   = null;
 
+let _loading = false;
 async function loadAll() {
+  if (_loading) return;
+  _loading = true;
+  const btn = document.getElementById('refresh-btn');
+  const ptr = document.getElementById('ptr-indicator');
+  const ptrText = document.getElementById('ptr-text');
+  if (btn) { btn.disabled = true; btn.textContent = '更新中...'; }
+  if (ptr) { ptr.classList.add('visible','refreshing');
+             ptrText.innerHTML = '<span class="ptr-spinner"></span>更新中...'; }
   try {
     const [cr, mn] = await Promise.all([
       fetch('/api/crypto').then(r => r.json()),
@@ -527,6 +555,13 @@ async function loadAll() {
     renderTab(currentTab);
   } catch(e) {
     console.error(e);
+  } finally {
+    _loading = false;
+    if (btn) { btn.disabled = false; btn.textContent = '↻ 更新'; }
+    if (ptr) {
+      ptrText.textContent = '↓ 下拉更新';
+      ptr.classList.remove('visible','refreshing');
+    }
   }
 }
 
@@ -626,12 +661,16 @@ function renderCryptoCard(p) {
   const cardBorder = p.sl_triggered ? 'border:1px solid rgba(255,69,58,.5);' : '';
   const dirLabel   = isLong ? '<span style="color:var(--green)">▲ LONG</span>' : '<span style="color:var(--red)">▼ SHORT</span>';
   // TP 目標（NFES 才有 tp1/tp2/tp3）
+  // 做多：價格漲才獲利 ↑ 綠；做空：價格跌才獲利 ↓ 紅
+  const tpColor  = isLong ? 'var(--green)' : 'var(--red)';
+  const tpArrow  = isLong ? '↑' : '↓';
+  const tpTitle  = isLong ? '🎯 做多止盈 ↑' : '🎯 做空止盈 ↓';
   const tpHtml = (p.tp1 && p.tp1 > 0) ? `
     <div class="divider"></div>
     <div class="pos-row">
-      <div class="pos-item"><span class="lbl">🎯 TP1</span><span class="val" style="color:var(--green)">${fmtPx(p.tp1)}</span></div>
-      <div class="pos-item" style="text-align:center"><span class="lbl">TP2</span><span class="val" style="color:var(--green)">${fmtPx(p.tp2)}</span></div>
-      <div class="pos-item" style="text-align:right"><span class="lbl">TP3</span><span class="val" style="color:var(--green)">${fmtPx(p.tp3)}</span></div>
+      <div class="pos-item"><span class="lbl">${tpTitle} TP1</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp1)}</span></div>
+      <div class="pos-item" style="text-align:center"><span class="lbl">TP2</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp2)}</span></div>
+      <div class="pos-item" style="text-align:right"><span class="lbl">TP3</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp3)}</span></div>
     </div>` : '';
 
   return `<div class="pos-card" style="${cardBorder}">
@@ -828,6 +867,36 @@ document.addEventListener('click', e => {
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) closeModal();
 });
+
+// ── 下拉更新（Pull-to-Refresh）手勢 ──
+(function(){
+  let startY = 0, pulling = false;
+  const THRESHOLD = 70;
+  const ptr = document.getElementById('ptr-indicator');
+  const ptrText = document.getElementById('ptr-text');
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 0 && dy < THRESHOLD + 20) {
+      ptr.classList.add('visible');
+      ptr.classList.remove('refreshing');
+      ptrText.textContent = dy > THRESHOLD ? '放開更新 ↑' : '↓ 繼續下拉';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!pulling) return;
+    const dy = e.changedTouches[0].clientY - startY;
+    pulling = false;
+    if (dy > THRESHOLD) { loadAll(); }
+    else { ptr.classList.remove('visible'); ptrText.textContent = '↓ 下拉更新'; }
+  }, { passive: true });
+})();
 
 // 啟動
 loadAll();
