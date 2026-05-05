@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-NFES Signal Bot — Y.Algo 自適應 Supertrend 訊號機器人
+NFES MTF Signal Bot — 三層多週期濾網訊號機器人
 ───────────────────────────────────────────────────────────────
-功能：
-  ‧ 每分鐘從 Binance 拉取 K 線資料
-  ‧ 完整還原 Pine Script NFES Enhanced Strategy 訊號邏輯
-  ‧ 偵測到 ▲+/▲/▼+/▼ 訊號時，直接呼叫 execute_signal()
-  ‧ 不需要 TradingView、不需要 Webhook，完全本地運行
-  ‧ 訊號去重：同一根 K 棒只觸發一次
+架構（對應 nfes_mtf.pine）：
+  層一 日線（D）  → Supertrend(4,14) 判斷多空方向 + EMA50 輔助
+  層二 4H        → Supertrend(3,14) 進場訊號 + 量能 1.2x 確認
+  （層三 1H 預設關閉）
 
-核心邏輯（與 Pine Script 一致）：
-  ‧ Adaptive Supertrend (ATR14, sensitivity=3)
-  ‧ Vol filter: volume > SMA(vol,20) × 1.2
-  ‧ RSI(14) 動量
-  ‧ MTF EMA50（1H）趨勢過濾
-  ‧ 訊號模式：Trend / Strong Trend / Volume Filter / Counter
-  ‧ SL = entry ± ATR×1.0
-  ‧ TP1/TP2/TP3 = entry ± ATR × 1.5/2.5/3.5R
+進場邏輯：
+  日線多頭 + 4H 翻轉/持續+回調 + 量能 → 做多
+  日線空頭 + 4H 翻轉/持續+回調 + 量能 → 做空
+
+風控參數：
+  SL   = 1.2× ATR(4H)
+  TP1  = 2.0R（出場 33%）
+  TP2  = 3.5R（出場剩餘 50%）
+  TP3  = 5.5R（全出）
+
+其他：
+  ‧ 次根 K 棒開盤進場（使用已收盤K棒，非重繪）
+  ‧ 訊號去重：同一根 4H K 棒只觸發一次
+  ‧ PAPER_MODE 由 nexus_webhook.py 控制
 
 啟動方式：
   python nfes_signal_bot.py
@@ -40,6 +44,7 @@ if _env_file.exists():
             _k, _v = _line.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip())
 
+import json
 import ccxt
 import requests
 
@@ -49,43 +54,46 @@ from nexus_webhook import execute_signal, tg, PAPER_MODE
 # ═══════════════════════════════════════════════════════════════
 # 策略名稱
 # ═══════════════════════════════════════════════════════════════
-STRATEGY_NAME = "NFES 強化版"
+STRATEGY_NAME = "NFES MTF"
 
 # ═══════════════════════════════════════════════════════════════
-# 設定（對應 Pine Script 預設值）
+# 設定（對應 nfes_mtf.pine 預設值）
 # ═══════════════════════════════════════════════════════════════
-SYMBOL        = "BTC/USDT"          # ccxt 格式
-TIMEFRAME     = "15m"               # 主圖週期
-MTF_TIMEFRAME = "1h"                # 高週期濾網
-SCAN_INTERVAL = 60                  # 每幾秒掃描一次（秒）
-LIMIT         = 300                 # 拉取K棒數量（足夠計算指標）
+TIMEFRAME     = "4h"                # 層二：主圖進場週期
+D_TIMEFRAME   = "1d"                # 層一：日線方向濾網
+SCAN_INTERVAL = 300                 # 每 5 分鐘掃一次（4H 訊號不需更頻繁）
+TOP_N         = 100                 # 掃描 Top N USDT 永續合約
+LIMIT         = 200                 # 4H K棒數量（足夠計算指標）
+D_LIMIT       = 100                 # 日線K棒數量
 
 # 狀態檔（讓 portfolio_app 讀取）
 STATE_FILE    = Path(__file__).parent / "nfes_bot_state.json"
 
-# 趨勢帶
-SENSITIVITY  = 3
-ATR_PERIOD   = 14
+# JSONBin 雲端同步（與 ema99_bot 共用同一個 .env）
+JSONBIN_API_KEY     = os.getenv("JSONBIN_API_KEY", "")
+JSONBIN_NFES_BIN_ID = os.getenv("JSONBIN_NFES_BIN_ID", "")
+
+# ── 層一：日線 Supertrend ──────────────────────────────────────
+D_SENSITIVITY = 4
+D_ATR_PERIOD  = 14
+D_EMA_LEN     = 50        # EMA50 輔助確認
+
+# ── 層二：4H Supertrend ───────────────────────────────────────
+SENSITIVITY   = 3
+ATR_PERIOD    = 14
 
 # 量能
-VOL_MA_LEN  = 20
-VOL_MULT    = 1.2
+VOL_MA_LEN    = 20
+VOL_MULT      = 1.2
 
-# 進場確認
+# 進場確認（回調碰趨勢帶）
 PULLBACK_BARS = 2
 
-# 多週期
-USE_MTF     = True
-MTF_EMA_LEN = 50
-
-# 風控
-SL_ATR_MULT    = 1.0
-TP1_MULT       = 1.5
-TP2_MULT       = 2.5
-TP3_MULT       = 3.5
-
-# 訊號模式："Trend" / "Strong Trend" / "Volume Filter" / "Counter"
-SIGNAL_MODE    = "Trend"
+# 風控（R 倍數）
+SL_ATR_MULT   = 1.2        # SL = entry ± ATR × 1.2
+TP1_R         = 2.0        # TP1 = 2.0R（出場 33%）
+TP2_R         = 3.5        # TP2 = 3.5R（出場 50% 剩餘）
+TP3_R         = 5.5        # TP3 = 5.5R（全出）
 
 # ── 日誌 ─────────────────────────────────────────────────────
 LOG_FILE = Path("nfes_signal_bot.log")
@@ -236,147 +244,126 @@ def calc_adaptive_supertrend(
 # 訊號偵測（完整還原 Pine Script 邏輯）
 # ═══════════════════════════════════════════════════════════════
 
-def detect_signals(ohlcv: list, mtf_ohlcv: list) -> dict | None:
+def detect_signals(ohlcv_4h: list, ohlcv_d: list) -> dict | None:
     """
-    傳入 K 棒資料，回傳最新一根K棒的訊號 dict 或 None
-    ohlcv 格式: [[timestamp, open, high, low, close, volume], ...]
+    三層 MTF 訊號偵測（對應 nfes_mtf.pine）
+    ohlcv_4h : 4H K棒列表（主圖訊號層）
+    ohlcv_d  : 日線K棒列表（方向濾網層）
+    回傳訊號 dict 或 None
     """
-    if len(ohlcv) < LIMIT // 2:
-        log.warning("K棒數量不足")
+    if len(ohlcv_4h) < 50 or len(ohlcv_d) < D_ATR_PERIOD + D_EMA_LEN:
+        return None   # 新幣K棒不足，靜默跳過
+
+    # ── 層一：日線 ────────────────────────────────────────────
+    dh = np.array([x[2] for x in ohlcv_d], dtype=float)
+    dl = np.array([x[3] for x in ohlcv_d], dtype=float)
+    dc = np.array([x[4] for x in ohlcv_d], dtype=float)
+
+    _, _, d_dir = calc_adaptive_supertrend(dh, dl, dc, D_SENSITIVITY, D_ATR_PERIOD)
+    d_ema50     = ema(dc, D_EMA_LEN)
+
+    d_bull = (d_dir[-1] == 1)   # 日線多頭
+    d_bear = (d_dir[-1] == -1)  # 日線空頭
+    # EMA50 輔助（僅輔助確認，不硬性過濾）
+    d_ema_ok_long  = np.isnan(d_ema50[-1]) or (dc[-1] > d_ema50[-1])
+    d_ema_ok_short = np.isnan(d_ema50[-1]) or (dc[-1] < d_ema50[-1])
+
+    # 日線方向（ema50 輔助：ema 沒有明顯衝突才放行）
+    day_long_ok  = d_bull and d_ema_ok_long
+    day_short_ok = d_bear and d_ema_ok_short
+
+    if not day_long_ok and not day_short_ok:
+        log.debug(f"日線方向不明確，略過 (d_dir={d_dir[-1]} d_ema={d_ema50[-1]:.1f} dc={dc[-1]:.1f})")
         return None
 
-    o_arr = np.array([x[1] for x in ohlcv], dtype=float)
-    h_arr = np.array([x[2] for x in ohlcv], dtype=float)
-    l_arr = np.array([x[3] for x in ohlcv], dtype=float)
-    c_arr = np.array([x[4] for x in ohlcv], dtype=float)
-    v_arr = np.array([x[5] for x in ohlcv], dtype=float)
+    # ── 層二：4H 進場 ─────────────────────────────────────────
+    h4_h = np.array([x[2] for x in ohlcv_4h], dtype=float)
+    h4_l = np.array([x[3] for x in ohlcv_4h], dtype=float)
+    h4_c = np.array([x[4] for x in ohlcv_4h], dtype=float)
+    h4_v = np.array([x[5] for x in ohlcv_4h], dtype=float)
 
-    # ── 指標計算 ──────────────────────────────────────────────
-    atr14 = true_atr(h_arr, l_arr, c_arr, ATR_PERIOD)
-    trend_upper, trend_lower, trend_dir = calc_adaptive_supertrend(
-        h_arr, l_arr, c_arr, SENSITIVITY, ATR_PERIOD
-    )
+    atr4h                       = true_atr(h4_h, h4_l, h4_c, ATR_PERIOD)
+    h4_upper, h4_lower, h4_dir = calc_adaptive_supertrend(h4_h, h4_l, h4_c, SENSITIVITY, ATR_PERIOD)
 
-    vol_avg    = sma(v_arr, VOL_MA_LEN)
-    rsi_arr    = calc_rsi(c_arr, 14)
+    vol_avg = sma(h4_v, VOL_MA_LEN)
 
-    # 高週期 EMA50
-    mtf_closes = np.array([x[4] for x in mtf_ohlcv], dtype=float) if mtf_ohlcv else np.array([])
-    mtf_ema50  = ema(mtf_closes, MTF_EMA_LEN) if len(mtf_closes) >= MTF_EMA_LEN else np.array([])
-    # 最新 MTF EMA 值
-    if len(mtf_ema50) > 0 and not np.isnan(mtf_ema50[-1]):
-        mtf_ema_val = mtf_ema50[-1]
-    else:
-        mtf_ema_val = None
-
-    # ── 最新兩根K棒 ─────────────────────────────────────────
-    i   = len(c_arr) - 1   # 最新已收盤K棒（index -1）
+    i   = len(h4_c) - 1
     i_1 = i - 1
 
-    if np.isnan(atr14[i]) or np.isnan(vol_avg[i]) or np.isnan(rsi_arr[i]):
+    if np.isnan(atr4h[i]) or np.isnan(vol_avg[i]):
         return None
 
-    close_now   = c_arr[i]
-    high_now    = h_arr[i]
-    low_now     = l_arr[i]
-    atr_now     = atr14[i]
-    vol_now     = v_arr[i]
-    vol_avg_now = vol_avg[i]
-    rsi_now     = rsi_arr[i]
+    close_now = h4_c[i]
+    atr_now   = atr4h[i]
+    vol_now   = h4_v[i]
+    vol_avg_n = vol_avg[i]
 
-    dir_now = trend_dir[i]
-    dir_pre = trend_dir[i_1] if i_1 >= 0 else dir_now
+    dir_now = h4_dir[i]
+    dir_pre = h4_dir[i_1] if i_1 >= 0 else dir_now
 
-    upper_now = trend_upper[i]
-    lower_now = trend_lower[i]
-    upper_pre = trend_upper[i_1] if i_1 >= 0 else upper_now
-    lower_pre = trend_lower[i_1] if i_1 >= 0 else lower_now
+    # 4H 趨勢狀態
+    flip_up = (dir_now ==  1 and dir_pre == -1)   # 剛翻多
+    flip_dn = (dir_now == -1 and dir_pre ==  1)   # 剛翻空
+    cont_up = (dir_now ==  1)                      # 多頭持續
+    cont_dn = (dir_now == -1)                      # 空頭持續
 
-    # 趨勢翻轉
-    trend_flip_up = (dir_now ==  1 and dir_pre == -1)
-    trend_flip_dn = (dir_now == -1 and dir_pre ==  1)
-    trend_up      = (dir_now ==  1)
-    trend_dn      = (dir_now == -1)
+    # 量能確認
+    vol_ok = (vol_now > vol_avg_n * VOL_MULT)
 
-    # 量能
-    vol_strong = (vol_now > vol_avg_now * VOL_MULT)
-
-    # RSI 動量
-    rsi_pre  = rsi_arr[i_1] if i_1 >= 0 else rsi_now
-    mom_bull = (rsi_pre <= 30 and rsi_now > 30)   # crossover(rsi, 30)
-    mom_bear = (rsi_pre >= 70 and rsi_now < 70)   # crossunder(rsi, 70)
-
-    # MTF 過濾
-    mtf_bull = (mtf_ema_val is None) or (close_now > mtf_ema_val)
-    mtf_bear = (mtf_ema_val is None) or (close_now < mtf_ema_val)
-    use_mtf  = USE_MTF and mtf_ema_val is not None
-
-    # 回調確認：最近 PULLBACK_BARS 根K棒曾碰觸趨勢帶
-    pullback_long  = False
-    pullback_short = False
+    # 回調確認（最近 PULLBACK_BARS 根曾觸及趨勢帶）
+    pb_long = pb_short = False
     for j in range(1, PULLBACK_BARS + 1):
         idx = i - j
         if idx < 0:
             break
-        if not np.isnan(trend_lower[idx]) and l_arr[idx] <= trend_lower[idx] * 1.003:
-            pullback_long = True
-        if not np.isnan(trend_upper[idx]) and h_arr[idx] >= trend_upper[idx] * 0.997:
-            pullback_short = True
+        if not np.isnan(h4_lower[idx]) and h4_l[idx] <= h4_lower[idx] * 1.003:
+            pb_long = True
+        if not np.isnan(h4_upper[idx]) and h4_h[idx] >= h4_upper[idx] * 0.997:
+            pb_short = True
 
-    # ── 基礎訊號 ──────────────────────────────────────────────
-    base_long  = trend_flip_up or (trend_up and pullback_long  and close_now > lower_now)
-    base_short = trend_flip_dn or (trend_dn and pullback_short and close_now < upper_now)
+    # 4H 進場條件（翻轉 or 回調延續）
+    entry_long  = flip_up or (cont_up and pb_long  and h4_c[i] > h4_lower[i])
+    entry_short = flip_dn or (cont_dn and pb_short and h4_c[i] < h4_upper[i])
 
-    raw_long  = False
-    raw_short = False
+    # ── 綜合三層條件 ─────────────────────────────────────────
+    raw_long  = entry_long  and vol_ok and day_long_ok
+    raw_short = entry_short and vol_ok and day_short_ok
 
-    if SIGNAL_MODE == "Trend":
-        raw_long  = base_long  and (not use_mtf or mtf_bull)
-        raw_short = base_short and (not use_mtf or mtf_bear)
-
-    elif SIGNAL_MODE == "Strong Trend":
-        raw_long  = base_long  and vol_strong and (not use_mtf or mtf_bull)
-        raw_short = base_short and vol_strong and (not use_mtf or mtf_bear)
-
-    elif SIGNAL_MODE == "Volume Filter":
-        raw_long  = base_long  and vol_strong
-        raw_short = base_short and vol_strong
-
-    elif SIGNAL_MODE == "Counter":
-        raw_long  = trend_dn and mom_bull
-        raw_short = trend_up and mom_bear
-
-    # 強/弱訊號
-    strong_long  = raw_long  and vol_strong
-    weak_long    = raw_long  and not vol_strong
-    strong_short = raw_short and vol_strong
-    weak_short   = raw_short and not vol_strong
-
-    # ── 無訊號 ───────────────────────────────────────────────
-    if not (strong_long or weak_long or strong_short or weak_short):
+    if not raw_long and not raw_short:
         return None
 
-    # ── 計算 TP/SL ──────────────────────────────────────────
-    if strong_long or weak_long:
+    # 強/弱（vol_ok 已是必要條件，此處用 flip 區分強弱）
+    if raw_long:
         side   = "long"
-        signal = "▲+" if strong_long else "▲"
-        sl     = round(close_now - atr_now * SL_ATR_MULT, 2)
-        tp1    = round(close_now + atr_now * TP1_MULT, 2)
-        tp2    = round(close_now + atr_now * TP2_MULT, 2)
-        tp3    = round(close_now + atr_now * TP3_MULT, 2)
+        signal = "▲+" if flip_up else "▲"
     else:
         side   = "short"
-        signal = "▼+" if strong_short else "▼"
-        sl     = round(close_now + atr_now * SL_ATR_MULT, 2)
-        tp1    = round(close_now - atr_now * TP1_MULT, 2)
-        tp2    = round(close_now - atr_now * TP2_MULT, 2)
-        tp3    = round(close_now - atr_now * TP3_MULT, 2)
+        signal = "▼+" if flip_dn else "▼"
 
-    # K棒時間戳（去重用）
-    bar_ts = ohlcv[i][0]
+    # ── 風控計算（基於 ATR，R 倍數）────────────────────────────
+    sl_dist = atr_now * SL_ATR_MULT    # SL 距離
+    if side == "long":
+        sl  = round(close_now - sl_dist, 2)
+        tp1 = round(close_now + sl_dist * TP1_R, 2)
+        tp2 = round(close_now + sl_dist * TP2_R, 2)
+        tp3 = round(close_now + sl_dist * TP3_R, 2)
+    else:
+        sl  = round(close_now + sl_dist, 2)
+        tp1 = round(close_now - sl_dist * TP1_R, 2)
+        tp2 = round(close_now - sl_dist * TP2_R, 2)
+        tp3 = round(close_now - sl_dist * TP3_R, 2)
+
+    bar_ts = ohlcv_4h[i][0]
+
+    log.debug(
+        f"訊號生成 {signal} | 日線={'多' if d_bull else '空'} "
+        f"d_ema={'OK' if (d_ema_ok_long if side=='long' else d_ema_ok_short) else 'X'} "
+        f"4H_dir={'多' if dir_now==1 else '空'} flip={flip_up or flip_dn} "
+        f"vol={vol_now:.0f}>avg*{VOL_MULT}={vol_avg_n*VOL_MULT:.0f}"
+    )
 
     return {
-        "symbol":  SYMBOL.replace("/", ""),
+        "symbol":  "UNKNOWN",   # 由主迴圈依掃描的幣種覆寫
         "side":    side,
         "signal":  signal,
         "entry":   close_now,
@@ -401,12 +388,28 @@ _nfes_state: dict = {
     "last_run":  "",
 }
 
+def _jsonbin_save() -> bool:
+    """把 NFES 狀態同步到 JSONBin（供 Render 雲端讀取）"""
+    if not JSONBIN_API_KEY or not JSONBIN_NFES_BIN_ID:
+        return False
+    try:
+        r = requests.put(
+            f"https://api.jsonbin.io/v3/b/{JSONBIN_NFES_BIN_ID}",
+            headers={"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"},
+            json=_nfes_state, timeout=8,
+        )
+        return r.ok
+    except Exception as e:
+        log.warning(f"jsonbin save failed: {e}")
+        return False
+
 def _save_state():
     """將 NFES 持倉與歷史記錄寫入 JSON，供 portfolio_app 讀取"""
     _nfes_state["last_run"] = datetime.now(timezone.utc).isoformat()
     STATE_FILE.write_text(
         json.dumps(_nfes_state, ensure_ascii=False, indent=2)
     )
+    _jsonbin_save()
 
 def _record_open(payload: dict):
     """記錄新開倉至 state"""
@@ -457,12 +460,23 @@ def _record_close(sym: str, reason: str, pnl: float = 0.0):
 # 資料拉取
 # ═══════════════════════════════════════════════════════════════
 
-import json as _json
+def get_top_symbols(exch: ccxt.Exchange) -> list[str]:
+    """取得 Top N USDT 永續合約（依24h成交量排序）"""
+    exch.load_markets()
+    tickers = exch.fetch_tickers(params={"type": "future"})
+    cands = [
+        (sym, float(t.get("quoteVolume") or 0))
+        for sym, t in tickers.items()
+        if sym.endswith("/USDT:USDT") and float(t.get("quoteVolume") or 0) > 0
+    ]
+    cands.sort(key=lambda x: x[1], reverse=True)
+    return [c[0] for c in cands[:TOP_N]]
 
-def fetch_data(exch: ccxt.Exchange):
-    ohlcv     = exch.fetch_ohlcv(SYMBOL, TIMEFRAME, limit=LIMIT)
-    mtf_ohlcv = exch.fetch_ohlcv(SYMBOL, MTF_TIMEFRAME, limit=MTF_EMA_LEN + 10) if USE_MTF else []
-    return ohlcv, mtf_ohlcv
+
+def fetch_data(exch: ccxt.Exchange, symbol: str):
+    ohlcv_4h = exch.fetch_ohlcv(symbol, TIMEFRAME,   limit=LIMIT)
+    ohlcv_d  = exch.fetch_ohlcv(symbol, D_TIMEFRAME, limit=D_LIMIT)
+    return ohlcv_4h, ohlcv_d
 
 # ═══════════════════════════════════════════════════════════════
 # 主迴圈
@@ -471,64 +485,93 @@ def fetch_data(exch: ccxt.Exchange):
 def main():
     log.info("=" * 60)
     mode_str = "🟡 PAPER MODE" if PAPER_MODE else "🔴 LIVE MODE"
-    log.info(f"NFES Signal Bot 啟動 {mode_str}")
-    log.info(f"交易對: {SYMBOL}  週期: {TIMEFRAME}  模式: {SIGNAL_MODE}")
-    log.info(f"MTF: {MTF_TIMEFRAME} EMA{MTF_EMA_LEN}  掃描間隔: {SCAN_INTERVAL}s")
+    log.info(f"NFES MTF Signal Bot 啟動 {mode_str}")
+    log.info(f"掃描範圍: Top{TOP_N} USDT永續  主圖: {TIMEFRAME}  日線濾網: {D_TIMEFRAME}")
+    log.info(f"4H ST({SENSITIVITY},{ATR_PERIOD})  日線ST({D_SENSITIVITY},{D_ATR_PERIOD}) EMA{D_EMA_LEN}")
+    log.info(f"SL={SL_ATR_MULT}×ATR  TP1={TP1_R}R TP2={TP2_R}R TP3={TP3_R}R  掃描間隔: {SCAN_INTERVAL}s")
     log.info("=" * 60)
-    tg(f"🤖 <b>NFES Signal Bot 啟動</b>\n{mode_str}\n{SYMBOL} {TIMEFRAME} | {SIGNAL_MODE}")
+    tg(
+        f"🤖 <b>NFES MTF Bot 啟動</b>\n{mode_str}\n"
+        f"Top{TOP_N} 永續 | 4H+日線 MTF\n"
+        f"SL={SL_ATR_MULT}×ATR  TP={TP1_R}R/{TP2_R}R/{TP3_R}R  間隔{SCAN_INTERVAL//60}分"
+    )
 
     # 讀取既有狀態（重啟不清空歷史）
     if STATE_FILE.exists():
         try:
-            saved = _json.loads(STATE_FILE.read_text())
+            saved = json.loads(STATE_FILE.read_text())
             _nfes_state["positions"] = saved.get("positions", {})
             _nfes_state["trades"]    = saved.get("trades",    [])
         except Exception:
             pass
 
     exch = ccxt.binanceusdm({
-        "apiKey":  os.getenv("BINANCE_API_KEY",    ""),
-        "secret":  os.getenv("BINANCE_API_SECRET", ""),
-        "options": {"defaultType": "future"},
+        "apiKey"         : os.getenv("BINANCE_API_KEY",    ""),
+        "secret"         : os.getenv("BINANCE_API_SECRET", ""),
+        "options"        : {"defaultType": "future"},
+        "enableRateLimit": True,    # ccxt 自動控速，防止被封
     })
 
-    last_bar_ts: int | None = None  # 去重：已觸發的K棒時間戳
+    # 每個幣各自記住上次觸發的 bar_ts（去重）
+    last_bar_ts: dict[str, int] = {}
 
     while True:
         try:
-            ohlcv, mtf_ohlcv = fetch_data(exch)
-            # 使用倒數第二根（已確認收盤），避免最新K棒未收盤造成假訊號
-            closed_ohlcv = ohlcv[:-1]
+            # ── 取 Top N 幣種 ──────────────────────────────────
+            try:
+                symbols = get_top_symbols(exch)
+                log.info(f"掃描 {len(symbols)} 個幣種...")
+            except Exception as e:
+                log.warning(f"get_top_symbols 失敗: {e}，30s後重試")
+                time.sleep(30)
+                continue
 
-            result = detect_signals(closed_ohlcv, mtf_ohlcv)
+            signals_found = 0
 
-            # 每次掃描都更新狀態時間戳（heartbeat）
+            for sym in symbols:
+                try:
+                    ohlcv_4h, ohlcv_d = fetch_data(exch, sym)
+                except ccxt.NetworkError as e:
+                    log.warning(f"{sym} 網路錯誤: {e}，跳過")
+                    continue
+                except Exception as e:
+                    log.debug(f"{sym} 資料錯誤: {e}，跳過")
+                    continue
+
+                # 使用倒數第二根（已確認收盤），避免假訊號
+                closed_4h = ohlcv_4h[:-1]
+                closed_d  = ohlcv_d[:-1]
+
+                result = detect_signals(closed_4h, closed_d)
+                if result is None:
+                    continue
+
+                bar_ts = result.pop("_bar_ts")
+
+                # 去重：同一根 4H K棒只觸發一次
+                if last_bar_ts.get(sym) == bar_ts:
+                    continue
+
+                last_bar_ts[sym] = bar_ts
+                signals_found += 1
+
+                # 覆寫 symbol（ccxt 格式 → Binance 格式）
+                result["symbol"] = sym.replace("/USDT:USDT", "USDT").replace("/", "")
+
+                ts_str = datetime.fromtimestamp(bar_ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+                log.info(
+                    f"🔔 {result['signal']} {result['symbol']}  "
+                    f"entry={result['entry']}  SL={result['sl']}  "
+                    f"TP1={result['tp1']} TP2={result['tp2']} TP3={result['tp3']}  @{ts_str}"
+                )
+                _record_open(result)
+                execute_signal(result)
+
+            log.info(f"本輪掃描完成，發現 {signals_found} 個訊號")
             _save_state()
 
-            if result is None:
-                log.debug("無訊號")
-            else:
-                bar_ts = result.pop("_bar_ts")  # 取出去重欄位
-
-                if bar_ts == last_bar_ts:
-                    log.debug(f"訊號已觸發過（bar_ts={bar_ts}），略過")
-                else:
-                    last_bar_ts = bar_ts
-                    ts_str = datetime.fromtimestamp(bar_ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-                    log.info(f"🔔 訊號觸發！{result['signal']} {result['symbol']} "
-                             f"entry={result['entry']} SL={result['sl']} "
-                             f"TP1={result['tp1']} TP2={result['tp2']} TP3={result['tp3']} "
-                             f"@ {ts_str}")
-                    # 記錄開倉
-                    _record_open(result)
-                    execute_signal(result)
-
-        except ccxt.NetworkError as e:
-            log.warning(f"網路錯誤: {e}，30s後重試")
-            time.sleep(30)
-            continue
         except Exception as e:
-            log.error(f"例外: {e}", exc_info=True)
+            log.error(f"主迴圈例外: {e}", exc_info=True)
             tg(f"❌ NFES Bot 例外: {e}")
 
         time.sleep(SCAN_INTERVAL)

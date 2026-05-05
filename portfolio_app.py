@@ -664,13 +664,21 @@ function renderCryptoCard(p) {
   // 做多：價格漲才獲利 ↑ 綠；做空：價格跌才獲利 ↓ 紅
   const tpColor  = isLong ? 'var(--green)' : 'var(--red)';
   const tpArrow  = isLong ? '↑' : '↓';
-  const tpTitle  = isLong ? '🎯 做多止盈 ↑' : '🎯 做空止盈 ↓';
+  const tpTitle  = isLong ? '🎯 做多止盈' : '🎯 做空止盈';
+  function tpPct(tp) {
+    if (!p.entry_px || !tp) return '';
+    const pct = isLong
+      ? ((tp - p.entry_px) / p.entry_px * 100).toFixed(1)
+      : ((p.entry_px - tp) / p.entry_px * 100).toFixed(1);
+    return ` <span style="font-size:11px;color:var(--sub)">(+${pct}%)</span>`;
+  }
   const tpHtml = (p.tp1 && p.tp1 > 0) ? `
     <div class="divider"></div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:6px">${tpTitle} ${tpArrow}</div>
     <div class="pos-row">
-      <div class="pos-item"><span class="lbl">${tpTitle} TP1</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp1)}</span></div>
-      <div class="pos-item" style="text-align:center"><span class="lbl">TP2</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp2)}</span></div>
-      <div class="pos-item" style="text-align:right"><span class="lbl">TP3</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp3)}</span></div>
+      <div class="pos-item"><span class="lbl">TP1</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp1)}${tpPct(p.tp1)}</span></div>
+      <div class="pos-item" style="text-align:center"><span class="lbl">TP2</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp2)}${tpPct(p.tp2)}</span></div>
+      <div class="pos-item" style="text-align:right"><span class="lbl">TP3</span><span class="val" style="color:${tpColor}">${tpArrow} ${fmtPx(p.tp3)}${tpPct(p.tp3)}</span></div>
     </div>` : '';
 
   return `<div class="pos-card" style="${cardBorder}">
