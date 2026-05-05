@@ -93,8 +93,12 @@ def save_manual(data: dict):
         _jsonbin_put(JSONBIN_MANUAL_BIN_ID, data)
 
 def fmt_sym(sym: str) -> str:
-    """把 'BTC/USDT:USDT' 變成 'BTC'"""
-    return sym.split("/")[0]
+    """把 'BTC/USDT:USDT' 或 'BTCUSDT' 變成 'BTC'"""
+    base = sym.split("/")[0]          # ccxt: 'BTC/USDT:USDT' → 'BTC'
+    # 若已是 'BTCUSDT' 格式，去掉尾部 USDT
+    if "/" not in sym and base.endswith("USDT"):
+        base = base[:-4]
+    return base
 
 _live_price_cache: dict = {}
 _live_price_ts: float = 0.0
@@ -115,7 +119,10 @@ def get_live_prices() -> dict[str, float]:
     return _live_price_cache
 
 def to_binance_sym(ccxt_sym: str) -> str:
-    """'1000PEPE/USDT:USDT' → '1000PEPEUSDT'"""
+    """'1000PEPE/USDT:USDT' → '1000PEPEUSDT'；'PLAYUSDT' → 'PLAYUSDT'（已是正確格式）"""
+    if "/" not in ccxt_sym:
+        # NFES bot 已存為 'PLAYUSDT' 格式，直接回傳
+        return ccxt_sym if ccxt_sym.endswith("USDT") else ccxt_sym + "USDT"
     base = ccxt_sym.split("/")[0]
     return base + "USDT"
 
