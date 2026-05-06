@@ -243,7 +243,7 @@ def api_crypto():
         tc["sym"]      = fmt_sym(tc.get("sym", ""))
         tc["strategy"] = tc.get("strategy", "NFES 強化版")
         all_trades.append(tc)
-    recent = sorted(all_trades, key=lambda x: x.get("exit_ts", ""), reverse=True)[:20]
+    recent = sorted(all_trades, key=lambda x: x.get("exit_ts", ""))
 
     # last_run = 兩者取較新的
     last_run = max(ema_last, nfes_last) if ema_last and nfes_last else (ema_last or nfes_last)
@@ -465,7 +465,30 @@ HTML = r"""<!DOCTYPE html>
   .trade-pnl { text-align: right; font-size: 15px; font-weight: 600; }
   .trade-ts { font-size: 11px; color: var(--sub); margin-top: 2px; }
 
+  /* ── Trade Filter ── */
+  .trade-filter { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .filter-btn { background: var(--card2); border: none; color: var(--sub); padding: 6px 14px;
+                border-radius: 20px; font-size: 13px; cursor: pointer; transition: all .2s; }
+  .filter-btn.active { background: var(--blue); color: #fff; }
+  .filter-custom { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .filter-custom input[type=date] { background: var(--card2); border: none; color: var(--text);
+    padding: 5px 10px; border-radius: 10px; font-size: 13px; }
+  .filter-custom button { background: var(--card2); border: none; color: var(--blue);
+    padding: 5px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+
+  /* ── Trade Stats Bar ── */
+  .trade-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .ts-card { background: var(--card2); border-radius: 12px; padding: 10px; text-align: center; }
+  .ts-card .ts-label { font-size: 10px; color: var(--sub); margin-bottom: 3px; }
+  .ts-card .ts-val { font-size: 15px; font-weight: 700; }
+
+  /* ── Equity Chart ── */
+  .equity-wrap { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .equity-title { font-size: 13px; color: var(--sub); margin-bottom: 10px; }
+  .equity-wrap canvas { width: 100% !important; }
+
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -600,7 +623,11 @@ function switchTab(tab, el) {
 
 function renderTab(tab) {
   const el = document.getElementById('main-content');
-  if (tab === 'trades') { el.innerHTML = renderTrades(); return; }
+  if (tab === 'trades') {
+    el.innerHTML = '<div id="tab-content"></div>';
+    renderTrades();
+    return;
+  }
 
   let html = '';
 
@@ -778,20 +805,169 @@ function renderManualCard(p, market) {
   </div>`;
 }
 
+// ── Trade filter state ─────────────────────────────────────────
+let _tradeRange = '30';   // '7' | '30' | 'custom'
+let _tradeFrom  = '';
+let _tradeTo    = '';
+let _equityChart = null;
+
+function _filterTrades(trades) {
+  const now = Date.now();
+  let from, to;
+  if (_tradeRange === '7')  { from = now - 7  * 86400000; to = now; }
+  if (_tradeRange === '30') { from = now - 30 * 86400000; to = now; }
+  if (_tradeRange === 'custom') {
+    from = _tradeFrom ? new Date(_tradeFrom).getTime() : 0;
+    to   = _tradeTo   ? new Date(_tradeTo).getTime() + 86400000 : now;
+  }
+  return trades.filter(t => {
+    const ts = t.exit_ts ? new Date(t.exit_ts).getTime() : 0;
+    return ts >= from && ts <= to;
+  });
+}
+
+function _setRange(r) {
+  _tradeRange = r;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('fb-' + r);
+  if (btn) btn.classList.add('active');
+  document.getElementById('custom-range').style.display = r === 'custom' ? 'flex' : 'none';
+  renderTrades();
+}
+
+function _applyCustomRange() {
+  _tradeFrom = document.getElementById('trade-from').value;
+  _tradeTo   = document.getElementById('trade-to').value;
+  renderTrades();
+}
+
+function _drawEquity(trades) {
+  // 以時間排序，累積 PnL
+  const sorted = [...trades].sort((a,b) => new Date(a.exit_ts||0) - new Date(b.exit_ts||0));
+  let cum = 0;
+  const labels = [], data = [];
+  sorted.forEach(t => {
+    cum += (t.pnl || 0);
+    const d = t.exit_ts ? new Date(t.exit_ts).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'}) : '';
+    labels.push(d);
+    data.push(parseFloat(cum.toFixed(2)));
+  });
+  // 補 0 起始點
+  labels.unshift('起始'); data.unshift(0);
+
+  const ctx = document.getElementById('equity-canvas');
+  if (!ctx) return;
+  if (_equityChart) { _equityChart.destroy(); _equityChart = null; }
+
+  const lastVal = data[data.length - 1];
+  const lineColor = lastVal >= 0 ? '#30d158' : '#ff453a';
+  const fillColor = lastVal >= 0 ? 'rgba(48,209,88,.15)' : 'rgba(255,69,58,.15)';
+
+  _equityChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        borderWidth: 2,
+        pointRadius: data.length <= 20 ? 3 : 0,
+        pointHoverRadius: 5,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => (ctx.parsed.y >= 0 ? '+' : '') + '$' + ctx.parsed.y.toFixed(2)
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color:'#8e8e93', font:{size:10}, maxTicksLimit:8 }, grid:{color:'rgba(255,255,255,.05)'} },
+        y: { ticks: { color:'#8e8e93', font:{size:10},
+                      callback: v => (v>=0?'+':'')+v },
+             grid:{ color:'rgba(255,255,255,.05)' } }
+      }
+    }
+  });
+}
+
 function renderTrades() {
-  const trades = cryptoData.recent_trades || [];
-  let html = `<div class="section"><div class="section-title">📋 近期交易（EMA99 + NFES 強化版）</div>`;
-  if (!trades.length) {
-    html += `<div class="empty"><div class="icon">📭</div><div>尚無交易記錄</div></div>`;
+  const allTrades = (cryptoData.recent_trades || []).slice().reverse();  // 新→舊 for list
+  const filtered  = _filterTrades(allTrades);
+
+  // ── 統計 ───────────────────────────────────────────────────
+  const wins    = filtered.filter(t => t.pnl > 0);
+  const losses  = filtered.filter(t => t.pnl <= 0);
+  const totalPnl = filtered.reduce((s,t) => s + (t.pnl||0), 0);
+  const winRate = filtered.length ? (wins.length / filtered.length * 100) : 0;
+  const avgWin  = wins.length   ? wins.reduce((s,t) => s+t.pnl,0) / wins.length   : 0;
+  const avgLoss = losses.length ? losses.reduce((s,t) => s+t.pnl,0) / losses.length : 0;
+  const pnlCol  = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let html = `<div class="section">
+  <div class="section-title">📋 交易紀錄</div>
+
+  <!-- 篩選器 -->
+  <div class="trade-filter">
+    <button class="filter-btn${_tradeRange==='7'?' active':''}"  id="fb-7"      onclick="_setRange('7')">7天</button>
+    <button class="filter-btn${_tradeRange==='30'?' active':''}" id="fb-30"     onclick="_setRange('30')">30天</button>
+    <button class="filter-btn${_tradeRange==='custom'?' active':''}" id="fb-custom" onclick="_setRange('custom')">自定義</button>
+    <div class="filter-custom" id="custom-range" style="display:${_tradeRange==='custom'?'flex':'none'}">
+      <input type="date" id="trade-from" value="${_tradeFrom}">
+      <span style="color:var(--sub)">～</span>
+      <input type="date" id="trade-to"   value="${_tradeTo}">
+      <button onclick="_applyCustomRange()">套用</button>
+    </div>
+  </div>
+
+  <!-- 統計 -->
+  <div class="trade-stats">
+    <div class="ts-card">
+      <div class="ts-label">總損益</div>
+      <div class="ts-val" style="color:${pnlCol}">${totalPnl>=0?'+':''}$${fmt(totalPnl)}</div>
+    </div>
+    <div class="ts-card">
+      <div class="ts-label">勝率</div>
+      <div class="ts-val">${winRate.toFixed(0)}%</div>
+    </div>
+    <div class="ts-card">
+      <div class="ts-label">均獲利</div>
+      <div class="ts-val" style="color:var(--green)">${avgWin>0?'+':''}$${fmt(avgWin)}</div>
+    </div>
+    <div class="ts-card">
+      <div class="ts-label">均虧損</div>
+      <div class="ts-val" style="color:var(--red)">${fmt(avgLoss)}</div>
+    </div>
+  </div>
+
+  <!-- 資產曲線 -->
+  <div class="equity-wrap">
+    <div class="equity-title">📈 資產曲線（累積 PnL）共 ${filtered.length} 筆</div>
+    <canvas id="equity-canvas" height="160"></canvas>
+  </div>
+
+  <!-- 交易列表 -->
+  <div class="pos-card">`;
+
+  if (!filtered.length) {
+    html += `<div class="empty"><div class="icon">📭</div><div>此區間無交易記錄</div></div>`;
   } else {
-    html += `<div class="pos-card">`;
-    trades.forEach(t => {
+    filtered.forEach(t => {
       const sign = t.pnl >= 0 ? '+' : '';
       const col  = t.pnl >= 0 ? 'var(--green)' : 'var(--red)';
       const ts   = t.exit_ts ? new Date(t.exit_ts).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-      const reasonLabel = {
-        'partial_tp':'部分止盈', 'stop_loss':'止損', 'trail_stop':'移動止損', 'breakeven':'保本出場'
-      }[t.reason] || t.reason;
+      const reasonMap = {
+        'partial_tp':'部分止盈','tp1':'TP1 止盈','tp2':'TP2 止盈','tp3':'TP3 止盈',
+        'stop_loss':'止損','trail_stop':'移動止損','breakeven':'保本出場'
+      };
+      const reasonLabel = reasonMap[t.reason] || t.reason;
       const stratCls = t.strategy && t.strategy.includes('NFES') ? 'strat-nfes' : 'strat-ema99';
       const stratName = t.strategy || 'EMA99';
       html += `<div class="trade-row">
@@ -805,10 +981,14 @@ function renderTrades() {
         </div>
       </div>`;
     });
-    html += `</div>`;
   }
-  html += `</div>`;
-  return html;
+  html += `</div></div>`;
+
+  // 注入 HTML 後繪圖
+  const el = document.getElementById('tab-content');
+  el.innerHTML = html;
+  _drawEquity(_filterTrades(cryptoData.recent_trades || []));
+  return '';  // renderTrades 由此直接操作 DOM
 }
 
 // ── Modal ──────────────────────────────────────────────────────
