@@ -45,6 +45,7 @@ if _env_file.exists():
             os.environ.setdefault(_k.strip(), _v.strip())
 
 import json
+import threading
 import ccxt
 import requests
 
@@ -94,6 +95,9 @@ SL_ATR_MULT   = 1.2        # SL = entry ± ATR × 1.2
 TP1_R         = 2.0        # TP1 = 2.0R（出場 33%）
 TP2_R         = 3.5        # TP2 = 3.5R（出場 50% 剩餘）
 TP3_R         = 5.5        # TP3 = 5.5R（全出）
+
+# 持倉監控頻率（秒）— 獨立 thread，與訊號掃描分開
+MONITOR_INTERVAL = 30      # 每 30 秒檢查止損/止盈，降低跳空風險
 
 # ── 日誌 ─────────────────────────────────────────────────────
 LOG_FILE = Path("nfes_signal_bot.log")
@@ -389,19 +393,21 @@ _nfes_state: dict = {
 }
 
 def _jsonbin_save() -> bool:
-    """把 NFES 狀態同步到 JSONBin（供 Render 雲端讀取）"""
+    """把 NFES 狀態同步到 JSONBin（供 Render 雲端讀取），失敗自動 retry 2 次"""
     if not JSONBIN_API_KEY or not JSONBIN_NFES_BIN_ID:
         return False
-    try:
-        r = requests.put(
-            f"https://api.jsonbin.io/v3/b/{JSONBIN_NFES_BIN_ID}",
-            headers={"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"},
-            json=_nfes_state, timeout=8,
-        )
-        return r.ok
-    except Exception as e:
-        log.warning(f"jsonbin save failed: {e}")
-        return False
+    url     = f"https://api.jsonbin.io/v3/b/{JSONBIN_NFES_BIN_ID}"
+    headers = {"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"}
+    for attempt in range(3):
+        try:
+            r = requests.put(url, headers=headers, json=_nfes_state, timeout=12)
+            if r.ok:
+                return True
+            log.warning(f"jsonbin save HTTP {r.status_code} (attempt {attempt+1})")
+        except Exception as e:
+            log.warning(f"jsonbin save failed (attempt {attempt+1}): {e}")
+        time.sleep(3)
+    return False
 
 def _save_state():
     """將 NFES 持倉與歷史記錄寫入 JSON，供 portfolio_app 讀取"""
@@ -457,6 +463,122 @@ def _record_close(sym: str, reason: str, pnl: float = 0.0):
     _save_state()
 
 # ═══════════════════════════════════════════════════════════════
+# 持倉監控：止盈 / 止損 / 移動止損
+# ═══════════════════════════════════════════════════════════════
+
+def _get_price(exch: ccxt.Exchange, binance_sym: str) -> float | None:
+    """取得即時成交價（用 ticker）"""
+    try:
+        ccxt_sym = binance_sym.replace("USDT", "/USDT:USDT") if "/" not in binance_sym else binance_sym
+        t = exch.fetch_ticker(ccxt_sym)
+        return float(t["last"])
+    except Exception as e:
+        log.warning(f"fetch_ticker {binance_sym} 失敗: {e}")
+        return None
+
+def monitor_positions(exch: ccxt.Exchange):
+    """掃描所有持倉，執行止損/止盈，更新現價"""
+    positions = _nfes_state["positions"]
+    if not positions:
+        return
+
+    for sym, pos in list(positions.items()):
+        cur = _get_price(exch, sym)
+        if cur is None:
+            continue
+
+        # 更新現價
+        pos["cur_px"] = cur
+
+        entry  = pos["entry_px"]
+        sl     = pos["sl"]
+        tp1    = pos["tp1"]
+        tp2    = pos["tp2"]
+        tp3    = pos["tp3"]
+        side   = pos.get("side", "long")
+        qty    = pos.get("qty", 0)
+        notional = pos.get("notional", 0)
+        tp2_hit = pos.get("tp2_hit", False)
+        tp1_hit = pos.get("tp1_hit", False)
+        is_long = side == "long"
+
+        def pnl_usd(exit_px):
+            return (exit_px - entry) / entry * notional * (1 if is_long else -1)
+
+        # ── 止損觸發 ────────────────────────────────────────────
+        sl_hit = (cur <= sl) if is_long else (cur >= sl)
+        if sl_hit:
+            pnl = pnl_usd(sl)
+            icon = "🔴" if is_long else "🟢"
+            reason = "stop_loss"
+            msg = (
+                f"🛑 <b>NFES 止損出場</b>\n"
+                f"{icon} {'LONG' if is_long else 'SHORT'} {sym}\n"
+                f"進場: {entry:.6g}  止損: {sl:.6g}  現價: {cur:.6g}\n"
+                f"損益: {'+' if pnl>=0 else ''}{pnl:.2f} USDT"
+            )
+            log.info(f"[SL] {sym} 止損 cur={cur} sl={sl} pnl={pnl:.2f}")
+            tg(msg)
+            _record_close(sym, reason, pnl)
+            continue
+
+        # ── TP3 全出 ────────────────────────────────────────────
+        tp3_hit = (cur >= tp3) if is_long else (cur <= tp3)
+        if tp3_hit and tp1_hit:
+            pnl = pnl_usd(tp3)
+            msg = (
+                f"🎯 <b>NFES TP3 全出</b>\n"
+                f"{'🟢 LONG' if is_long else '🔴 SHORT'} {sym}\n"
+                f"進場: {entry:.6g}  TP3: {tp3:.6g}  現價: {cur:.6g}\n"
+                f"損益: +{pnl:.2f} USDT"
+            )
+            log.info(f"[TP3] {sym} 全出 cur={cur} tp3={tp3} pnl={pnl:.2f}")
+            tg(msg)
+            _record_close(sym, "tp3", pnl)
+            continue
+
+        # ── TP2 出場（剩餘 50%）─────────────────────────────────
+        tp2_price_hit = (cur >= tp2) if is_long else (cur <= tp2)
+        if tp2_price_hit and tp1_hit and not tp2_hit:
+            pos["tp2_hit"] = True
+            pos["partial"] = True
+            # SL 移到 TP1（鎖利）
+            pos["sl"] = tp1
+            pnl = pnl_usd(tp2) * (1/3)   # 約剩 1/3 倉
+            msg = (
+                f"🎯 <b>NFES TP2 部分出場</b>\n"
+                f"{'🟢 LONG' if is_long else '🔴 SHORT'} {sym}\n"
+                f"TP2: {tp2:.6g}  SL 移至 TP1: {tp1:.6g}\n"
+                f"預估損益: +{pnl:.2f} USDT"
+            )
+            log.info(f"[TP2] {sym} 部分出場 cur={cur} tp2={tp2}")
+            tg(msg)
+            _save_state()
+            continue
+
+        # ── TP1 出場（第一批 33%）───────────────────────────────
+        tp1_price_hit = (cur >= tp1) if is_long else (cur <= tp1)
+        if tp1_price_hit and not tp1_hit:
+            pos["tp1_hit"] = True
+            pos["partial"] = True
+            # SL 移到 breakeven（進場價）
+            pos["sl"] = entry
+            pnl = pnl_usd(tp1) * (1/3)
+            msg = (
+                f"🎯 <b>NFES TP1 部分出場</b>\n"
+                f"{'🟢 LONG' if is_long else '🔴 SHORT'} {sym}\n"
+                f"TP1: {tp1:.6g}  SL 移至保本: {entry:.6g}\n"
+                f"預估損益: +{pnl:.2f} USDT"
+            )
+            log.info(f"[TP1] {sym} 部分出場 cur={cur} tp1={tp1}")
+            tg(msg)
+            _save_state()
+            continue
+
+    _save_state()
+
+
+# ═══════════════════════════════════════════════════════════════
 # 資料拉取
 # ═══════════════════════════════════════════════════════════════
 
@@ -509,15 +631,29 @@ def main():
         "apiKey"         : os.getenv("BINANCE_API_KEY",    ""),
         "secret"         : os.getenv("BINANCE_API_SECRET", ""),
         "options"        : {"defaultType": "future"},
-        "enableRateLimit": True,    # ccxt 自動控速，防止被封
+        "enableRateLimit": True,
     })
 
-    # 每個幣各自記住上次觸發的 bar_ts（去重）
+    # ── Thread 1：高頻持倉監控（每 30 秒）────────────────────────
+    # 只對已持倉幣種拉 ticker，API 消耗極低
+    def _monitor_loop():
+        while True:
+            try:
+                monitor_positions(exch)
+            except Exception as e:
+                log.error(f"monitor_loop 例外: {e}")
+            time.sleep(MONITOR_INTERVAL)
+
+    t = threading.Thread(target=_monitor_loop, daemon=True, name="monitor")
+    t.start()
+    log.info(f"✅ 持倉監控 thread 啟動（每 {MONITOR_INTERVAL}s）")
+
+    # ── Thread 2（主線程）：訊號掃描（每 5 分鐘）─────────────────
     last_bar_ts: dict[str, int] = {}
 
     while True:
         try:
-            # ── 取 Top N 幣種 ──────────────────────────────────
+            # 取 Top N 幣種掃描新訊號
             try:
                 symbols = get_top_symbols(exch)
                 log.info(f"掃描 {len(symbols)} 個幣種...")
@@ -538,7 +674,6 @@ def main():
                     log.debug(f"{sym} 資料錯誤: {e}，跳過")
                     continue
 
-                # 使用倒數第二根（已確認收盤），避免假訊號
                 closed_4h = ohlcv_4h[:-1]
                 closed_d  = ohlcv_d[:-1]
 
@@ -548,14 +683,12 @@ def main():
 
                 bar_ts = result.pop("_bar_ts")
 
-                # 去重：同一根 4H K棒只觸發一次
                 if last_bar_ts.get(sym) == bar_ts:
                     continue
 
                 last_bar_ts[sym] = bar_ts
                 signals_found += 1
 
-                # 覆寫 symbol（ccxt 格式 → Binance 格式）
                 result["symbol"] = sym.replace("/USDT:USDT", "USDT").replace("/", "")
 
                 ts_str = datetime.fromtimestamp(bar_ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
