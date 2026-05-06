@@ -392,22 +392,29 @@ _nfes_state: dict = {
     "last_run":  "",
 }
 
-def _jsonbin_save() -> bool:
-    """把 NFES 狀態同步到 JSONBin（供 Render 雲端讀取），失敗自動 retry 2 次"""
+def _jsonbin_save_worker(snapshot: dict):
+    """背景執行：retry 3 次，完全不阻塞主執行緒"""
     if not JSONBIN_API_KEY or not JSONBIN_NFES_BIN_ID:
-        return False
+        return
     url     = f"https://api.jsonbin.io/v3/b/{JSONBIN_NFES_BIN_ID}"
     headers = {"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"}
     for attempt in range(3):
         try:
-            r = requests.put(url, headers=headers, json=_nfes_state, timeout=12)
+            r = requests.put(url, headers=headers, json=snapshot, timeout=15)
             if r.ok:
-                return True
+                log.info(f"jsonbin sync ok (attempt {attempt+1})")
+                return
             log.warning(f"jsonbin save HTTP {r.status_code} (attempt {attempt+1})")
         except Exception as e:
             log.warning(f"jsonbin save failed (attempt {attempt+1}): {e}")
-        time.sleep(3)
-    return False
+        time.sleep(5)
+    log.error("jsonbin sync failed after 3 attempts")
+
+def _jsonbin_save():
+    """非同步推送至 JSONBin（背景 thread，不影響監控精度）"""
+    snapshot = json.loads(json.dumps(_nfes_state))   # deep copy
+    t = threading.Thread(target=_jsonbin_save_worker, args=(snapshot,), daemon=True)
+    t.start()
 
 def _save_state():
     """將 NFES 持倉與歷史記錄寫入 JSON，供 portfolio_app 讀取"""
@@ -415,7 +422,7 @@ def _save_state():
     STATE_FILE.write_text(
         json.dumps(_nfes_state, ensure_ascii=False, indent=2)
     )
-    _jsonbin_save()
+    _jsonbin_save()   # 非同步，立即返回
 
 def _record_open(payload: dict):
     """記錄新開倉至 state"""
