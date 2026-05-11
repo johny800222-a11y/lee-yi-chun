@@ -4,7 +4,7 @@ EMA99 + BB Squeeze V3 — 自動交易 Bot
 ─────────────────────────────────────────────────────────────
 功能：
   ‧ 每小時掃描 Top100 USDT 永續合約
-  ‧ 4H 趨勢過濾 + 1H 二次突破進場
+  ‧ 1H 趨勢過濾 + 15min 二次突破進場（日內交易模式）
   ‧ 止損 / 保本 / 分批止盈 / 移動止損 自動管理
   ‧ Telegram 即時通知（進場、出場、每小時狀態）
   ‧ PAPER_MODE=True 時完全虛擬，不送出真實訂單
@@ -64,17 +64,17 @@ TOP_N           = 100
 EMA_N           = 99
 BB_N, BB_STD    = 20, 2.0
 ATR_N           = 14
-WASHOUT_BARS    = 3
+WASHOUT_BARS    = 2
 SLOPE_LOOKBACK  = 3
-MIN_TP_DIST     = 0.02   # BB 上軌距進場至少 2%（過近不進場）
-COOLDOWN_HOURS  = 4      # 出場後同一幣冷卻 4 小時才可再進場
-BREAKEVEN_PCT   = 0.05
-TRAIL_ATR_MULT  = 1.5
+MIN_TP_DIST     = 0.008  # BB 上軌距進場至少 0.8%（日內放寬）
+COOLDOWN_HOURS  = 1      # 出場後同一幣冷卻 1 小時才可再進場（日內）
+BREAKEVEN_PCT   = 0.02
+TRAIL_ATR_MULT  = 1.2
 TAKER_FEE       = 0.0005
 
 # ── 強化參數（2026-05 月度檢討新增）──────────────────────────
 VOL_MA_N        = 20     # 成交量均線長度
-VOL_MULT        = 1.3    # 突破 K 棒成交量需 > VOL_MA_N 均量 × VOL_MULT
+VOL_MULT        = 1.1    # 突破 K 棒成交量需 > VOL_MA_N 均量 × VOL_MULT（日內放寬）
 MAX_DRAWDOWN    = 0.20   # 最大回撤熔斷：資金跌破 INITIAL_CAPITAL*(1-MAX_DRAWDOWN) 停止進場
 
 # ── 檔案 ────────────────────────────────────────────────────────
@@ -215,8 +215,12 @@ class Telegram:
         if positions:
             lines.append("─ 持倉明細 ─")
             for sym, p in positions.items():
-                pnl_pct = (p["cur_px"] - p["entry_px"]) / p["entry_px"] * 100
-                lines.append(f"  {sym.split('/')[0]}: {pnl_pct:+.1f}%  入{p['entry_px']:.4f}")
+                side_icon = "🟢" if p.get("side", "long") == "long" else "🔴"
+                if p.get("side", "long") == "long":
+                    pnl_pct = (p.get("cur_px", p["entry_px"]) - p["entry_px"]) / p["entry_px"] * 100
+                else:
+                    pnl_pct = (p["entry_px"] - p.get("cur_px", p["entry_px"])) / p["entry_px"] * 100
+                lines.append(f"  {side_icon}{sym.split('/')[0]}: {pnl_pct:+.1f}%  入{p['entry_px']:.4f}")
         self.send("\n".join(lines))
 
     def on_watchlist(self, items: list, paper: bool) -> None:
@@ -439,10 +443,19 @@ def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
 # SIGNAL
 # ═══════════════════════════════════════════════════════════════
 def _4h_ok(d4: pd.DataFrame) -> bool:
+    """1H 多頭濾網：收盤 > EMA99 且斜率向上"""
     if len(d4) < SLOPE_LOOKBACK + 2:
         return False
     last = d4.iloc[-1]
     return bool(last["close"] > last["ema"] and last["slope"] > 0)
+
+
+def _4h_ok_short(d4: pd.DataFrame) -> bool:
+    """1H 空頭濾網：收盤 < EMA99 且斜率向下"""
+    if len(d4) < SLOPE_LOOKBACK + 2:
+        return False
+    last = d4.iloc[-1]
+    return bool(last["close"] < last["ema"] and last["slope"] < 0)
 
 
 def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
@@ -483,6 +496,55 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
         "entry_px": entry_px,
         "sl"      : sl,
         "bb_u"    : bar["bb_u"],
+        "atr"     : bar["atr"],
+    }
+
+
+def _entry_signal_short(d1: pd.DataFrame) -> Optional[dict]:
+    """
+    空單進場訊號（_entry_signal 的鏡像）：
+    ‧ 前根收盤 > EMA99（剛在上方）
+    ‧ 當根收盤 < EMA99 且 < BB 中軌
+    ‧ 前 WASHOUT_BARS 根收盤皆 > EMA99（高位洗盤後翻空）
+    ‧ 量能確認
+    """
+    idx = len(d1) - 1
+    if idx < EMA_N + BB_N + WASHOUT_BARS + 5:
+        return None
+    bar  = d1.iloc[idx]
+    prev = d1.iloc[idx - 1]
+
+    if bar["close"] >= bar["ema"]:
+        return None
+    if bar["close"] >= bar["bb_m"]:
+        return None
+    if prev["close"] < prev["ema"]:
+        return None
+
+    # 連續高位 K 棒計數
+    consec = 0
+    for k in range(1, idx + 1):
+        if d1.iloc[idx - k]["close"] >= d1.iloc[idx - k]["ema"]:
+            consec += 1
+        else:
+            break
+    if consec < WASHOUT_BARS:
+        return None
+
+    # 量能確認
+    vol_ma = bar.get("vol_ma", 0)
+    if vol_ma > 0 and bar["volume"] < vol_ma * VOL_MULT:
+        return None
+
+    entry_px = bar["close"]
+    sl = max(bar["ema"], bar["bb_u"])
+    if sl <= entry_px:
+        sl = entry_px * 1.03
+
+    return {
+        "entry_px": entry_px,
+        "sl"      : sl,
+        "bb_l"    : bar["bb_l"],   # 空單 TP 用 BB 下軌
         "atr"     : bar["atr"],
     }
 
@@ -588,7 +650,8 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
     # ── 3. 出場檢查 ───────────────────────────────────────────
     for sym in list(positions.keys()):
         pos = positions[sym]
-        d1  = fetch_ohlcv(exch, sym, "1h", limit=250)
+        side_pos = pos.get("side", "long")   # 向下相容舊持倉（無 side 欄位視為多）
+        d1  = fetch_ohlcv(exch, sym, "15m", limit=250)
         if d1.empty:
             continue
         d1 = add_1h_ind(d1)
@@ -602,74 +665,151 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
 
         just_partial = False
 
-        # 有效止損 = max(初始止損, 移動止損)
-        eff_sl = max(pos["sl"], pos.get("trail_sl") or 0.0)
+        if side_pos == "long":
+            # ── 多單出場 ──────────────────────────────────────
+            eff_sl = max(pos["sl"], pos.get("trail_sl") or 0.0)
 
-        # 止損
-        if lo <= eff_sl:
-            exit_px = eff_sl
-            net = (exit_px - entry_px) / entry_px * pos["notional"]
-            net -= pos["qty"] * exit_px * TAKER_FEE
-            place_order(exch, sym, "sell", pos["qty"], exit_px, reduce_only=True)
-            capital += pos["margin"] + net
-            reason_label = "breakeven" if pos.get("breakeven_set") and exit_px >= entry_px else "stop"
-            tg.on_stop_loss(sym, entry_px, exit_px, net, hold_h, reason_label, PAPER_MODE)
-            state["trades"].append(_trade_record(sym, pos, exit_px, net, "stop_loss", now))
-            log.info(f"STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
-            state.setdefault("cooldown", {})[sym] = str(now)
-            del positions[sym]
-            continue
+            # 止損
+            if lo <= eff_sl:
+                exit_px = eff_sl
+                net = (exit_px - entry_px) / entry_px * pos["notional"]
+                net -= pos["qty"] * exit_px * TAKER_FEE
+                place_order(exch, sym, "sell", pos["qty"], exit_px, reduce_only=True)
+                capital += pos["margin"] + net
+                reason_label = "breakeven" if pos.get("breakeven_set") and exit_px >= entry_px else "stop"
+                tg.on_stop_loss(sym, entry_px, exit_px, net, hold_h, reason_label, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, exit_px, net, "stop_loss", now))
+                log.info(f"LONG STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+                state.setdefault("cooldown", {})[sym] = str(now)
+                del positions[sym]
+                continue
 
-        # 分批止盈（BB 上軌）
-        if not pos.get("partial") and hi >= pos["bb_u"]:
-            just_partial = True
-            tp_px    = pos["bb_u"]
-            half_qty = pos["qty"] * 0.5
-            h_not    = pos["notional"] * 0.5
-            h_mar    = pos["margin"]   * 0.5
-            net = (tp_px - entry_px) / entry_px * h_not
-            net -= half_qty * tp_px * TAKER_FEE
-            place_order(exch, sym, "sell", half_qty, tp_px, reduce_only=True)
-            capital += h_mar + net
-            tg.on_partial_tp(sym, entry_px, tp_px, net, PAPER_MODE)
-            state["trades"].append(_trade_record(sym, pos, tp_px, net, "partial_tp", now))
-            log.info(f"PARTIAL_TP {sym}  exit={tp_px:.4f}  pnl={net:+.2f}")
-            pos["qty"]      = half_qty
-            pos["notional"] = h_not
-            pos["margin"]   = h_mar
-            pos["partial"]  = True
-            pos["peak_close"] = cl
-            pos["trail_sl"] = max(cl - TRAIL_ATR_MULT * atr_v, entry_px)
-
-        # 更新 ratchet trailing SL
-        if pos.get("partial") and pos.get("trail_sl") is not None:
-            pk = pos.get("peak_close", cl)
-            if cl > pk:
+            # 分批止盈（BB 上軌）
+            if not pos.get("partial") and hi >= pos["bb_u"]:
+                just_partial = True
+                tp_px    = pos["bb_u"]
+                half_qty = pos["qty"] * 0.5
+                h_not    = pos["notional"] * 0.5
+                h_mar    = pos["margin"]   * 0.5
+                net = (tp_px - entry_px) / entry_px * h_not
+                net -= half_qty * tp_px * TAKER_FEE
+                place_order(exch, sym, "sell", half_qty, tp_px, reduce_only=True)
+                capital += h_mar + net
+                tg.on_partial_tp(sym, entry_px, tp_px, net, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, tp_px, net, "partial_tp", now))
+                log.info(f"LONG PARTIAL_TP {sym}  exit={tp_px:.4f}  pnl={net:+.2f}")
+                pos["qty"]      = half_qty
+                pos["notional"] = h_not
+                pos["margin"]   = h_mar
+                pos["partial"]  = True
                 pos["peak_close"] = cl
-                pk = cl
-            new_trail = max(pk - TRAIL_ATR_MULT * atr_v, entry_px)
-            if new_trail > pos["trail_sl"]:
-                pos["trail_sl"] = new_trail
+                pos["trail_sl"] = max(cl - TRAIL_ATR_MULT * atr_v, entry_px)
 
-        # 移動止損出場（不在剛設移動止損的同一根 K 棒）
-        if not just_partial and pos.get("trail_sl") and lo <= pos["trail_sl"]:
-            exit_px = pos["trail_sl"]
-            net = (exit_px - entry_px) / entry_px * pos["notional"]
-            net -= pos["qty"] * exit_px * TAKER_FEE
-            place_order(exch, sym, "sell", pos["qty"], exit_px, reduce_only=True)
-            capital += pos["margin"] + net
-            tg.on_trail_stop(sym, entry_px, exit_px, net, hold_h, PAPER_MODE)
-            state["trades"].append(_trade_record(sym, pos, exit_px, net, "trail_stop", now))
-            log.info(f"TRAIL_STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
-            state.setdefault("cooldown", {})[sym] = str(now)
-            del positions[sym]
-            continue
+            # 更新 ratchet trailing SL（多單：peak 往上拉）
+            if pos.get("partial") and pos.get("trail_sl") is not None:
+                pk = pos.get("peak_close", cl)
+                if cl > pk:
+                    pos["peak_close"] = cl
+                    pk = cl
+                new_trail = max(pk - TRAIL_ATR_MULT * atr_v, entry_px)
+                if new_trail > pos["trail_sl"]:
+                    pos["trail_sl"] = new_trail
 
-        # 保本止損：利潤 ≥ 5% → SL 移至成本
-        if not pos.get("breakeven_set") and cl >= entry_px * (1 + BREAKEVEN_PCT):
-            pos["sl"] = max(pos["sl"], entry_px)
-            pos["breakeven_set"] = True
-            log.info(f"BREAKEVEN SET {sym}  sl={pos['sl']:.4f}")
+            # 移動止損出場
+            if not just_partial and pos.get("trail_sl") and lo <= pos["trail_sl"]:
+                exit_px = pos["trail_sl"]
+                net = (exit_px - entry_px) / entry_px * pos["notional"]
+                net -= pos["qty"] * exit_px * TAKER_FEE
+                place_order(exch, sym, "sell", pos["qty"], exit_px, reduce_only=True)
+                capital += pos["margin"] + net
+                tg.on_trail_stop(sym, entry_px, exit_px, net, hold_h, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, exit_px, net, "trail_stop", now))
+                log.info(f"LONG TRAIL_STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+                state.setdefault("cooldown", {})[sym] = str(now)
+                del positions[sym]
+                continue
+
+            # 保本止損
+            if not pos.get("breakeven_set") and cl >= entry_px * (1 + BREAKEVEN_PCT):
+                pos["sl"] = max(pos["sl"], entry_px)
+                pos["breakeven_set"] = True
+                log.info(f"LONG BREAKEVEN SET {sym}  sl={pos['sl']:.4f}")
+
+        else:  # side_pos == "short"
+            # ── 空單出場 ──────────────────────────────────────
+            # 空單止損在上方，有效止損 = min(初始止損, 移動止損)
+            trail = pos.get("trail_sl")
+            if trail is not None:
+                eff_sl = min(pos["sl"], trail)
+            else:
+                eff_sl = pos["sl"]
+
+            # 止損（收盤或最高價觸及）
+            if hi >= eff_sl:
+                exit_px = eff_sl
+                net = (entry_px - exit_px) / entry_px * pos["notional"]
+                net -= pos["qty"] * exit_px * TAKER_FEE
+                place_order(exch, sym, "buy", pos["qty"], exit_px, reduce_only=True)
+                capital += pos["margin"] + net
+                reason_label = "breakeven" if pos.get("breakeven_set") and exit_px <= entry_px else "stop"
+                tg.on_stop_loss(sym, entry_px, exit_px, net, hold_h, reason_label, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, exit_px, net, "stop_loss", now))
+                log.info(f"SHORT STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+                state.setdefault("cooldown", {})[sym] = str(now)
+                del positions[sym]
+                continue
+
+            # 分批止盈（BB 下軌）
+            if not pos.get("partial") and lo <= pos["bb_l"]:
+                just_partial = True
+                tp_px    = pos["bb_l"]
+                half_qty = pos["qty"] * 0.5
+                h_not    = pos["notional"] * 0.5
+                h_mar    = pos["margin"]   * 0.5
+                net = (entry_px - tp_px) / entry_px * h_not
+                net -= half_qty * tp_px * TAKER_FEE
+                place_order(exch, sym, "buy", half_qty, tp_px, reduce_only=True)
+                capital += h_mar + net
+                tg.on_partial_tp(sym, entry_px, tp_px, net, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, tp_px, net, "partial_tp", now))
+                log.info(f"SHORT PARTIAL_TP {sym}  exit={tp_px:.4f}  pnl={net:+.2f}")
+                pos["qty"]      = half_qty
+                pos["notional"] = h_not
+                pos["margin"]   = h_mar
+                pos["partial"]  = True
+                pos["trough_close"] = cl
+                # 空單移動止損：入場價 ↓ 後跟隨（上移保護利潤）
+                pos["trail_sl"] = min(cl + TRAIL_ATR_MULT * atr_v, entry_px)
+
+            # 更新 ratchet trailing SL（空單：trough 往下拉）
+            if pos.get("partial") and pos.get("trail_sl") is not None:
+                tr = pos.get("trough_close", cl)
+                if cl < tr:
+                    pos["trough_close"] = cl
+                    tr = cl
+                new_trail = min(tr + TRAIL_ATR_MULT * atr_v, entry_px)
+                if new_trail < pos["trail_sl"]:
+                    pos["trail_sl"] = new_trail
+
+            # 移動止損出場
+            if not just_partial and pos.get("trail_sl") and hi >= pos["trail_sl"]:
+                exit_px = pos["trail_sl"]
+                net = (entry_px - exit_px) / entry_px * pos["notional"]
+                net -= pos["qty"] * exit_px * TAKER_FEE
+                place_order(exch, sym, "buy", pos["qty"], exit_px, reduce_only=True)
+                capital += pos["margin"] + net
+                tg.on_trail_stop(sym, entry_px, exit_px, net, hold_h, PAPER_MODE)
+                state["trades"].append(_trade_record(sym, pos, exit_px, net, "trail_stop", now))
+                log.info(f"SHORT TRAIL_STOP {sym}  exit={exit_px:.4f}  pnl={net:+.2f}")
+                state.setdefault("cooldown", {})[sym] = str(now)
+                del positions[sym]
+                continue
+
+            # 保本止損（空單：SL 移至成本，即進場價）
+            if not pos.get("breakeven_set") and cl <= entry_px * (1 - BREAKEVEN_PCT):
+                pos["sl"] = min(pos["sl"], entry_px)
+                pos["breakeven_set"] = True
+                log.info(f"SHORT BREAKEVEN SET {sym}  sl={pos['sl']:.4f}")
 
     state["capital"] = capital
 
@@ -690,26 +830,30 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
         if sym in positions:
             continue
 
-        # 4H 趨勢（進場 + 觀察名單共用）
-        d4 = fetch_ohlcv(exch, sym, "4h", limit=150)
+        # 1H 指標（多空共用）
+        d4 = fetch_ohlcv(exch, sym, "1h", limit=150)
         if d4.empty:
             continue
         d4 = add_4h_ind(d4)
-        if not _4h_ok(d4):
-            continue
 
-        # 1H 資料（進場 + 觀察名單共用）
-        d1 = fetch_ohlcv(exch, sym, "1h", limit=250)
+        # 15min 資料（多空共用）
+        d1 = fetch_ohlcv(exch, sym, "15m", limit=250)
         if d1.empty:
             continue
         d1 = add_1h_ind(d1)
 
-        sig = _entry_signal(d1)
+        # 先偵測多空訊號（不依賴1H方向，讓訊號函式先出結果）
+        sig_long  = _entry_signal(d1)        if _4h_ok(d4)       else None
+        sig_short = _entry_signal_short(d1)  if _4h_ok_short(d4) else None
 
-        if sig is not None and can_enter and len(positions) < MAX_OPEN_POS:
+        # 優先多單（若同時觸發，取多）
+        sig  = sig_long or sig_short
+        direction = "long" if sig_long else ("short" if sig_short else None)
+
+        if sig is not None and direction is not None and can_enter and len(positions) < MAX_OPEN_POS:
             entry_px = sig["entry_px"]
 
-            # 冷卻期過濾：出場後 COOLDOWN_HOURS 內不再進同一幣
+            # 冷卻期過濾
             cooldown_map = state.get("cooldown", {})
             if sym in cooldown_map:
                 last_exit = datetime.fromisoformat(cooldown_map[sym])
@@ -717,24 +861,32 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
                     log.info(f"COOLDOWN {sym}  跳過（距上次出場 {(now-last_exit).total_seconds()/3600:.1f}h）")
                     continue
                 else:
-                    del cooldown_map[sym]   # 冷卻結束，清除紀錄
+                    del cooldown_map[sym]
 
-            # BB 上軌距離過近過濾：至少需有 MIN_TP_DIST 的獲利空間
-            tp_dist = (sig["bb_u"] - entry_px) / entry_px
+            # TP 距離過濾
+            if direction == "long":
+                tp_ref  = sig["bb_u"]
+                tp_dist = (tp_ref - entry_px) / entry_px
+            else:
+                tp_ref  = sig["bb_l"]
+                tp_dist = (entry_px - tp_ref) / entry_px
             if tp_dist < MIN_TP_DIST:
-                log.info(f"TP_TOO_CLOSE {sym}  bb_u 距離 {tp_dist*100:.1f}% < {MIN_TP_DIST*100:.0f}%，跳過")
+                log.info(f"TP_TOO_CLOSE {sym} {direction}  距離 {tp_dist*100:.1f}%，跳過")
                 continue
 
             # ── 執行進場 ──────────────────────────────────
-            atr_v    = sig["atr"]
-            atr_pct  = atr_v / entry_px if entry_px > 0 else 0.05
+            atr_v   = sig["atr"]
+            atr_pct = atr_v / entry_px if entry_px > 0 else 0.05
             lev = 3 if atr_pct < 0.025 else (2 if atr_pct < 0.04 else 1)
 
             margin   = capital * MAX_POS_PCT
             notional = margin * lev
             sl       = sig["sl"]
 
-            sl_dist = (entry_px - sl) / entry_px
+            if direction == "long":
+                sl_dist = (entry_px - sl) / entry_px
+            else:
+                sl_dist = (sl - entry_px) / entry_px
             if sl_dist > 0:
                 max_not = (capital * 0.03) / sl_dist
                 if notional > max_not:
@@ -745,16 +897,19 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
             if margin + entry_fee > capital:
                 continue
 
-            qty = notional / entry_px
-            tg.on_signal(sym, entry_px, sl, sig["bb_u"], lev, PAPER_MODE)
+            qty          = notional / entry_px
+            order_side   = "buy" if direction == "long" else "sell"
+            tp_field_key = "bb_u" if direction == "long" else "bb_l"
 
+            tg.on_signal(sym, entry_px, sl, tp_ref, lev, PAPER_MODE)
             set_leverage(exch, sym, lev)
-            order = place_order(exch, sym, "buy", qty, entry_px)
+            order = place_order(exch, sym, order_side, qty, entry_px)
             if order is None:
                 continue
 
             capital -= margin + entry_fee
-            positions[sym] = {
+            pos_record = {
+                "side"         : direction,
                 "entry_px"     : entry_px,
                 "cur_px"       : entry_px,
                 "qty"          : qty,
@@ -762,19 +917,25 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
                 "margin"       : margin,
                 "notional"     : notional,
                 "sl"           : sl,
-                "bb_u"         : sig["bb_u"],
                 "partial"      : False,
                 "trail_sl"     : None,
                 "breakeven_set": False,
-                "peak_close"   : entry_px,
                 "entry_ts"     : str(now),
             }
-            log.info(f"ENTRY {sym}  px={entry_px:.4f}  lev={lev}x  sl={sl:.4f}")
+            if direction == "long":
+                pos_record["bb_u"]       = tp_ref
+                pos_record["peak_close"] = entry_px
+            else:
+                pos_record["bb_l"]         = tp_ref
+                pos_record["trough_close"] = entry_px
+
+            positions[sym] = pos_record
+            log.info(f"ENTRY {direction.upper()} {sym}  px={entry_px:.4f}  lev={lev}x  sl={sl:.4f}  tp={tp_ref:.4f}")
             tg.on_entry(sym, entry_px, qty, margin, sl, lev, PAPER_MODE)
             time.sleep(0.3)
 
         elif sig is None:
-            # ── 觀察名單檢查 ───────────────────────────────
+            # ── 觀察名單（多頭為主）──────────────────────────
             w = _watchlist_check(d1)
             if w:
                 w["sym"] = sym
@@ -802,11 +963,13 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
     save_state(state)
 
     # ── 5. 狀態通知（僅在排程器認為到時間才送）────────────────
-    open_pnl = sum(
-        (p.get("cur_px", p["entry_px"]) - p["entry_px"])
-        / p["entry_px"] * p["notional"]
-        for p in positions.values()
-    )
+    open_pnl = 0.0
+    for p in positions.values():
+        cur = p.get("cur_px", p["entry_px"])
+        if p.get("side", "long") == "long":
+            open_pnl += (cur - p["entry_px"]) / p["entry_px"] * p["notional"]
+        else:
+            open_pnl += (p["entry_px"] - cur) / p["entry_px"] * p["notional"]
     if send_status:
         tg.on_hourly_status(capital, positions, open_pnl, PAPER_MODE)
     log.info(f"Done  capital={capital:.2f}  pos={len(positions)}  open_pnl={open_pnl:+.2f}")
@@ -866,47 +1029,125 @@ def _cmd_listener(tg: "Telegram") -> None:
                 positions = state.get("positions", {})
                 capital   = state.get("capital", 0)
 
+                # ── 讀取 NFES Bot 狀態（合併顯示）────────────────
+                nfes_state     = {}
+                nfes_positions = {}
+                nfes_capital   = 0.0
+                try:
+                    nfes_path = Path(__file__).parent / "nfes_bot_state.json"
+                    if nfes_path.exists():
+                        nfes_state     = json.loads(nfes_path.read_text(encoding="utf-8"))
+                        nfes_positions = nfes_state.get("positions", {})
+                        nfes_capital   = nfes_state.get("capital", 0.0) or 0.0
+                except Exception as _ne:
+                    log.warning(f"讀取 nfes_bot_state.json 失敗: {_ne}")
+
+                def _pos_upnl(p):
+                    """計算持倉未實現盈虧（支援多/空）"""
+                    cur  = p.get("cur_px", p["entry_px"])
+                    side = p.get("side", "long")
+                    if side == "long":
+                        return (cur - p["entry_px"]) / p["entry_px"] * p["notional"]
+                    else:
+                        return (p["entry_px"] - cur) / p["entry_px"] * p["notional"]
+
                 if text in ("/持倉", "/positions"):
-                    if not positions:
+                    total_pos = len(positions) + len(nfes_positions)
+                    if total_pos == 0:
                         tg.send("目前無持倉")
                     else:
-                        lines = ["📋 <b>目前持倉</b>"]
-                        for sym, p in positions.items():
-                            cur  = p.get("cur_px", p["entry_px"])
-                            pct  = (cur - p["entry_px"]) / p["entry_px"] * 100
-                            upnl = (cur - p["entry_px"]) / p["entry_px"] * p["notional"]
-                            lines.append(
-                                f"\n<code>{sym.split('/')[0]}</code>\n"
-                                f"  進場：{p['entry_px']:.4f}  現價：{cur:.4f}\n"
-                                f"  未實現：{upnl:+.2f} USDT ({pct:+.1f}%)\n"
-                                f"  槓桿：{p['lev']}x  止損：{p['sl']:.4f}"
-                            )
+                        lines = ["📋 <b>目前持倉（全策略合計）</b>"]
+                        if positions:
+                            lines.append("\n🔷 <b>EMA99 Bot</b>")
+                            for sym, p in positions.items():
+                                cur  = p.get("cur_px", p["entry_px"])
+                                side = p.get("side", "long")
+                                upnl = _pos_upnl(p)
+                                pct  = upnl / p["notional"] * 100
+                                side_icon = "🟢" if side == "long" else "🔴"
+                                lines.append(
+                                    f"\n{side_icon}<code>{sym.split('/')[0]}</code>  {side.upper()}\n"
+                                    f"  進場：{p['entry_px']:.4f}  現價：{cur:.4f}\n"
+                                    f"  未實現：{upnl:+.2f} USDT ({pct:+.1f}%)\n"
+                                    f"  槓桿：{p['lev']}x  止損：{p['sl']:.4f}"
+                                )
+                        if nfes_positions:
+                            lines.append("\n🔶 <b>NFES Signal Bot</b>")
+                            for sym, p in nfes_positions.items():
+                                cur  = p.get("cur_px", p["entry_px"])
+                                side = p.get("side", "long")
+                                upnl = _pos_upnl(p)
+                                pct  = upnl / p["notional"] * 100
+                                side_icon = "🟢" if side == "long" else "🔴"
+                                lines.append(
+                                    f"\n{side_icon}<code>{sym.split('/')[0]}</code>  {side.upper()}\n"
+                                    f"  進場：{p['entry_px']:.4f}  現價：{cur:.4f}\n"
+                                    f"  未實現：{upnl:+.2f} USDT ({pct:+.1f}%)\n"
+                                    f"  槓桿：{p['lev']}x  止損：{p['sl']:.4f}"
+                                )
+                        # 合計未實現
+                        all_upnl = sum(_pos_upnl(p) for p in positions.values()) \
+                                 + sum(_pos_upnl(p) for p in nfes_positions.values())
+                        lines.append(f"\n─ 合計未實現：{all_upnl:+.2f} USDT  共 {total_pos} 倉 ─")
                         tg.send("\n".join(lines))
 
                 elif text in ("/盈虧", "/pnl"):
-                    trades = state.get("trades", [])
-                    realized = sum(t["pnl"] for t in trades)
-                    open_pnl = sum(
-                        (p.get("cur_px", p["entry_px"]) - p["entry_px"])
-                        / p["entry_px"] * p["notional"]
-                        for p in positions.values()
-                    )
-                    total = capital + open_pnl
-                    ret   = (total - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100
+                    # EMA99
+                    trades_e   = state.get("trades", [])
+                    realized_e = sum(t["pnl"] for t in trades_e)
+                    open_e     = sum(_pos_upnl(p) for p in positions.values())
+                    # NFES
+                    trades_n   = nfes_state.get("trades", [])
+                    realized_n = sum(t["pnl"] for t in trades_n)
+                    open_n     = sum(_pos_upnl(p) for p in nfes_positions.values())
+                    # 合計
+                    realized_all = realized_e + realized_n
+                    open_all     = open_e + open_n
+                    capital_all  = capital + nfes_capital
+                    total_all    = capital_all + open_all
+                    ret_all      = (total_all - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100 if INITIAL_CAPITAL else 0
                     tg.send(
-                        f"💰 <b>盈虧摘要</b>\n"
-                        f"已實現：{realized:+.2f} USDT\n"
-                        f"未實現：{open_pnl:+.2f} USDT\n"
-                        f"可用資金：{capital:.2f} USDT\n"
-                        f"淨值：{total:.2f} USDT  <i>({ret:+.1f}%)</i>\n"
-                        f"交易次數：{len(trades)}"
+                        f"💰 <b>盈虧摘要（全策略合計）</b>\n"
+                        f"已實現：{realized_all:+.2f} USDT\n"
+                        f"未實現：{open_all:+.2f} USDT\n"
+                        f"可用資金：{capital_all:.2f} USDT\n"
+                        f"淨值：{total_all:.2f} USDT  <i>({ret_all:+.1f}%)</i>\n"
+                        f"交易次數：{len(trades_e)+len(trades_n)}  "
+                        f"（EMA99:{len(trades_e)} / NFES:{len(trades_n)}）\n"
+                        f"─\n"
+                        f"🔷 EMA99  已實現 {realized_e:+.2f}  未實現 {open_e:+.2f}  持倉 {len(positions)}\n"
+                        f"🔶 NFES   已實現 {realized_n:+.2f}  未實現 {open_n:+.2f}  持倉 {len(nfes_positions)}"
                     )
 
                 elif text in ("/狀態", "/status"):
-                    tg.on_hourly_status(capital, positions,
-                        sum((p.get("cur_px", p["entry_px"]) - p["entry_px"])
-                            / p["entry_px"] * p["notional"] for p in positions.values()),
-                        PAPER_MODE)
+                    open_e   = sum(_pos_upnl(p) for p in positions.values())
+                    open_n   = sum(_pos_upnl(p) for p in nfes_positions.values())
+                    open_all = open_e + open_n
+                    cap_all  = capital + nfes_capital
+                    total_all = cap_all + open_all
+                    ret_all   = (total_all - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100 if INITIAL_CAPITAL else 0
+                    mode      = "📄 虛擬盤" if PAPER_MODE else "🔴 實盤"
+                    lines = [
+                        f"📊 <b>狀態報告（全策略）</b>  {mode}",
+                        f"時間：{_now()}",
+                        f"可用資金：{cap_all:.2f} USDT",
+                        f"未實現盈虧：{open_all:+.2f} USDT",
+                        f"淨值：{total_all:.2f}  <i>({ret_all:+.1f}%)</i>",
+                        f"持倉：{len(positions)+len(nfes_positions)} 倉",
+                    ]
+                    if positions:
+                        lines.append("─ 🔷 EMA99 ─")
+                        for sym, p in positions.items():
+                            side_icon = "🟢" if p.get("side","long") == "long" else "🔴"
+                            pct = _pos_upnl(p) / p["notional"] * 100
+                            lines.append(f"  {side_icon}{sym.split('/')[0]}: {pct:+.1f}%  入{p['entry_px']:.4f}")
+                    if nfes_positions:
+                        lines.append("─ 🔶 NFES ─")
+                        for sym, p in nfes_positions.items():
+                            side_icon = "🟢" if p.get("side","long") == "long" else "🔴"
+                            pct = _pos_upnl(p) / p["notional"] * 100
+                            lines.append(f"  {side_icon}{sym.split('/')[0]}: {pct:+.1f}%  入{p['entry_px']:.4f}")
+                    tg.send("\n".join(lines))
 
                 elif text in ("/觀察", "/watchlist"):
                     tg.send("🔄 正在掃描觀察名單，請稍候...")
@@ -917,13 +1158,13 @@ def _cmd_listener(tg: "Telegram") -> None:
                         for s in syms:
                             if s in positions:
                                 continue
-                            d4t = fetch_ohlcv(_exch, s, "4h", limit=150)
+                            d4t = fetch_ohlcv(_exch, s, "1h", limit=150)
                             if d4t.empty:
                                 continue
                             d4t = add_4h_ind(d4t)
                             if not _4h_ok(d4t):
                                 continue
-                            d1t = fetch_ohlcv(_exch, s, "1h", limit=250)
+                            d1t = fetch_ohlcv(_exch, s, "15m", limit=250)
                             if d1t.empty:
                                 continue
                             d1t = add_1h_ind(d1t)
@@ -946,33 +1187,41 @@ def _cmd_listener(tg: "Telegram") -> None:
                     except ValueError:
                         n = 10
                     n = max(1, min(n, 50))
-                    trades = state.get("trades", [])
-                    if not trades:
+                    # 合併兩個 bot 的交易記錄，加上來源標籤後按時間排序
+                    trades_e = [dict(t, _bot="E") for t in state.get("trades", [])]
+                    trades_n = [dict(t, _bot="N") for t in nfes_state.get("trades", [])]
+                    all_trades = sorted(
+                        trades_e + trades_n,
+                        key=lambda t: str(t.get("exit_ts", "")),
+                    )
+                    if not all_trades:
                         tg.send("尚無歷史交易紀錄")
                     else:
-                        recent   = trades[-n:][::-1]
-                        realized = sum(t["pnl"] for t in trades)
-                        wins     = sum(1 for t in trades if t["pnl"] > 0)
-                        wr       = wins / len(trades) * 100
-                        lines = [f"📜 <b>歷史訂單（最近 {len(recent)} / 共 {len(trades)} 筆）</b>"]
+                        recent   = all_trades[-n:][::-1]
+                        realized = sum(t["pnl"] for t in all_trades)
+                        wins     = sum(1 for t in all_trades if t["pnl"] > 0)
+                        wr       = wins / len(all_trades) * 100
+                        lines = [f"📜 <b>歷史訂單（最近 {len(recent)} / 共 {len(all_trades)} 筆）</b>"]
                         for t in recent:
-                            sym = t.get("sym", "?").split("/")[0]
-                            ep  = t.get("entry_px", 0)
-                            xp  = t.get("exit_px", 0)
-                            pnl = t.get("pnl", 0)
-                            pct = (xp - ep) / ep * 100 if ep else 0
-                            rsn = t.get("reason", "")
-                            ts  = str(t.get("exit_ts", ""))[:16]
-                            emo = "✅" if pnl > 0 else "❌"
+                            sym  = t.get("sym", "?").split("/")[0]
+                            ep   = t.get("entry_px", 0)
+                            xp   = t.get("exit_px", 0)
+                            pnl  = t.get("pnl", 0)
+                            pct  = (xp - ep) / ep * 100 if ep else 0
+                            rsn  = t.get("reason", "")
+                            ts   = str(t.get("exit_ts", ""))[:16]
+                            emo  = "✅" if pnl > 0 else "❌"
+                            bot_tag = "🔷" if t.get("_bot") == "E" else "🔶"
                             lines.append(
-                                f"\n{emo} <code>{sym}</code>  {ts}\n"
+                                f"\n{emo}{bot_tag}<code>{sym}</code>  {ts}\n"
                                 f"  {ep:.4f} → {xp:.4f}  ({pct:+.1f}%)\n"
                                 f"  PnL：{pnl:+.2f} USDT  [{rsn}]"
                             )
                         lines.append(
                             f"\n— — —\n"
                             f"總實現：{realized:+.2f} USDT\n"
-                            f"勝率：{wr:.1f}% ({wins}/{len(trades)})"
+                            f"勝率：{wr:.1f}% ({wins}/{len(all_trades)})  "
+                            f"（🔷EMA99:{len(trades_e)} / 🔶NFES:{len(trades_n)}）"
                         )
                         tg.send("\n".join(lines))
 

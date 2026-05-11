@@ -382,7 +382,7 @@ def detect_signals(ohlcv_4h: list, ohlcv_d: list) -> dict | None:
 # 狀態管理（供 portfolio_app 讀取）
 # ═══════════════════════════════════════════════════════════════
 
-from nexus_webhook import USDT_PER_TRADE, LEVERAGE
+from nexus_webhook import calc_trade_params
 
 _nfes_state: dict = {
     "strategy": STRATEGY_NAME,
@@ -426,12 +426,13 @@ def _save_state():
 
 def _record_open(payload: dict):
     """記錄新開倉至 state"""
-    sym      = payload["symbol"]
-    side     = payload["side"]
-    entry    = payload["entry"]
-    notional = USDT_PER_TRADE * LEVERAGE
-    margin   = USDT_PER_TRADE
-    qty      = round(notional / entry, 6)
+    sym    = payload["symbol"]
+    side   = payload["side"]
+    entry  = payload["entry"]
+    signal = payload.get("signal", "")
+    margin, lev = calc_trade_params(signal)   # 動態：總資金10% × 訊號槓桿
+    notional    = margin * lev
+    qty         = round(notional / entry, 6)
 
     _nfes_state["positions"][sym] = {
         "strategy" : STRATEGY_NAME,
@@ -445,7 +446,7 @@ def _record_open(payload: dict):
         "tp3"      : payload["tp3"],
         "margin"   : margin,
         "notional" : notional,
-        "lev"      : LEVERAGE,
+        "lev"      : lev,
         "qty"      : qty,
         "partial"  : False,
         "entry_ts" : datetime.now(timezone.utc).isoformat(),
@@ -656,7 +657,21 @@ def main():
     log.info(f"✅ 持倉監控 thread 啟動（每 {MONITOR_INTERVAL}s）")
 
     # ── Thread 2（主線程）：訊號掃描（每 5 分鐘）─────────────────
+    # ── 修復：從 state 恢復已記錄的 bar_ts，重啟後不重複進場 ────
     last_bar_ts: dict[str, int] = {}
+    _bar_ts_file = Path(__file__).parent / "nfes_bar_ts.json"
+    try:
+        if _bar_ts_file.exists():
+            last_bar_ts = json.loads(_bar_ts_file.read_text(encoding="utf-8"))
+            log.info(f"✅ 載入 bar_ts 去重記錄，共 {len(last_bar_ts)} 筆")
+    except Exception as _e:
+        log.warning(f"載入 bar_ts 失敗: {_e}")
+
+    def _save_bar_ts():
+        try:
+            _bar_ts_file.write_text(json.dumps(last_bar_ts), encoding="utf-8")
+        except Exception as _e:
+            log.warning(f"儲存 bar_ts 失敗: {_e}")
 
     while True:
         try:
@@ -693,7 +708,23 @@ def main():
                 if last_bar_ts.get(sym) == bar_ts:
                     continue
 
+                # ── 修復 Bug1：SL 方向驗證 ──────────────────────────
+                entry = result.get("entry", 0)
+                sl    = result.get("sl", 0)
+                side  = result.get("side", "long")
+                if side == "long" and sl >= entry:
+                    log.warning(
+                        f"⚠️ 跳過 {sym}：多單 SL({sl}) >= entry({entry})，訊號異常"
+                    )
+                    continue
+                if side == "short" and sl <= entry:
+                    log.warning(
+                        f"⚠️ 跳過 {sym}：空單 SL({sl}) <= entry({entry})，訊號異常"
+                    )
+                    continue
+
                 last_bar_ts[sym] = bar_ts
+                _save_bar_ts()   # 修復 Bug2：持久化，重啟後不重入
                 signals_found += 1
 
                 result["symbol"] = sym.replace("/USDT:USDT", "USDT").replace("/", "")
