@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: expense-tracker-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: EINVOICE_APP_ID
+        sync: false
+      - key: EINVOICE_API_KEY
+        sync: false
+      - key: CARRIER_BARCODE_群
+        sync: false
+      - key: CARRIER_BARCODE_萱
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

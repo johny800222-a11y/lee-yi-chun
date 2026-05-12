@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>群萱記帳本</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="glow-orb"></div>
+
+<!-- ── 頂部 ── -->
+<header>
+  <div class="header-inner">
+    <h1>💰 群萱記帳本</h1>
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <span id="monthLabel"></span>
+      <button id="nextMonth">›</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── 總覽卡片 ── -->
+<section class="cards">
+  <div class="card card-total">
+    <div class="card-label">本月總花費</div>
+    <div class="card-amount" id="totalAmount">$0</div>
+  </div>
+  <div class="card card-qun">
+    <div class="card-label">👤 群</div>
+    <div class="card-amount" id="qunAmount">$0</div>
+  </div>
+  <div class="card card-xuan">
+    <div class="card-label">👤 萱</div>
+    <div class="card-amount" id="xuanAmount">$0</div>
+  </div>
+</section>
+
+<!-- ── 圖表區 ── -->
+<section class="charts">
+  <div class="chart-box">
+    <h2>分類花銷</h2>
+    <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <h2>群 vs 萱</h2>
+    <div class="chart-wrap"><canvas id="personChart"></canvas></div>
+  </div>
+  <div class="chart-box chart-wide">
+    <h2>每日花費趨勢</h2>
+    <canvas id="dailyChart" style="max-height:180px"></canvas>
+  </div>
+</section>
+
+<!-- ── 功能列 ── -->
+<section class="toolbar">
+  <div class="filter-group">
+    <select id="filterPerson">
+      <option value="">全部人員</option>
+      <option value="群">群</option>
+      <option value="萱">萱</option>
+    </select>
+    <select id="filterCategory">
+      <option value="">全部分類</option>
+      <option>餐飲</option><option>交通</option><option>購物</option>
+      <option>日用品</option><option>娛樂</option><option>醫療</option><option>其他</option>
+    </select>
+  </div>
+  <div class="action-group">
+    <button class="btn btn-sync" id="syncInvoiceBtn">☁️ 同步發票</button>
+    <button class="btn btn-add" id="openModalBtn">＋ 新增花費</button>
+  </div>
+</section>
+
+<!-- ── 明細列表 ── -->
+<section class="expense-list">
+  <div id="expenseRows"></div>
+</section>
+
+<!-- ── 新增/編輯 Modal ── -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">新增花費</h2>
+    <form id="expenseForm">
+      <input type="hidden" id="editId" />
+      <div class="form-grid">
+        <label>花費人
+          <select id="fPerson" required>
+            <option value="群">群</option>
+            <option value="萱">萱</option>
+          </select>
+        </label>
+        <label>日期
+          <input type="date" id="fDate" required />
+        </label>
+        <label>分類
+          <select id="fCategory">
+            <option>餐飲</option><option>交通</option><option>購物</option>
+            <option>日用品</option><option>娛樂</option><option>醫療</option><option>其他</option>
+          </select>
+        </label>
+        <label>金額 (NT$)
+          <input type="number" id="fAmount" min="1" required placeholder="0" />
+        </label>
+        <label class="full-width">描述
+          <input type="text" id="fDescription" placeholder="例：麥當勞早餐" />
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-cancel" id="cancelModalBtn">取消</button>
+        <button type="submit" class="btn btn-save">儲存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── 同步發票 Modal ── -->
+<div class="modal-overlay" id="syncModalOverlay">
+  <div class="modal">
+    <h2>☁️ 同步電子發票</h2>
+    <p style="color:#888;font-size:.9rem;margin-bottom:1rem">將從財政部載具自動匯入發票紀錄</p>
+    <div class="form-grid">
+      <label>同步對象
+        <select id="syncPerson">
+          <option value="群">群</option>
+          <option value="萱">萱</option>
+        </select>
+      </label>
+      <label>範圍
+        <select id="syncMonths">
+          <option value="1">近 1 個月</option>
+          <option value="2">近 2 個月</option>
+          <option value="3">近 3 個月</option>
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-cancel" id="cancelSyncBtn">取消</button>
+      <button type="button" class="btn btn-save" id="doSyncBtn">開始同步</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
