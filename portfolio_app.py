@@ -686,6 +686,18 @@ function strategyTag(strategy) {
   return `<span class="strategy-tag ${cls}">${strategy}</span>`;
 }
 
+function fmtEntryTs(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    const MM = String(d.getMonth()+1).padStart(2,'0');
+    const DD = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${d.getFullYear()}/${MM}/${DD} ${hh}:${mm}`;
+  } catch(e) { return ''; }
+}
+
 function renderCryptoCard(p) {
   const pnlColor   = p.pnl_pct >= 0 ? 'green' : 'red';
   const pnlSign    = p.pnl_pct >= 0 ? '▲' : '▼';
@@ -694,6 +706,7 @@ function renderCryptoCard(p) {
   const liveTag    = p.using_live ? '🟢 即時' : '🟡 存檔';
   const cardBorder = p.sl_triggered ? 'border:1px solid rgba(255,69,58,.5);' : '';
   const dirLabel   = isLong ? '<span style="color:var(--green)">▲ LONG</span>' : '<span style="color:var(--red)">▼ SHORT</span>';
+  const entryTimeStr = fmtEntryTs(p.entry_ts);
   // TP 目標（NFES 才有 tp1/tp2/tp3）
   // 做多：價格漲才獲利 ↑ 綠；做空：價格跌才獲利 ↓ 紅
   const tpColor  = isLong ? 'var(--green)' : 'var(--red)';
@@ -717,7 +730,7 @@ function renderCryptoCard(p) {
 
   return `<div class="pos-card" style="${cardBorder}">
     <div class="pos-top">
-      <div class="pos-sym">${strategyTag(p.strategy)}${p.sym} ${p.sl_triggered ? '⚠️' : ''}</div>
+      <div class="pos-sym">${strategyTag(p.strategy)}${p.sym}${entryTimeStr ? ` <span style="font-size:12px;font-weight:400;color:var(--sub)">(${entryTimeStr})</span>` : ''} ${p.sl_triggered ? '⚠️' : ''}</div>
       <span class="pos-badge badge-crypto">${dirLabel} ${p.lev}×</span>
     </div>
     <div class="pos-row">
