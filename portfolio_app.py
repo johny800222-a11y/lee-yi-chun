@@ -259,6 +259,21 @@ def _build_positions(positions: dict, strategy: str, live_prices: dict) -> list:
 @app.route("/api/crypto")
 def api_crypto():
     """讀取雙策略 bot state，回傳合併加密幣持倉（共用資金）"""
+    # ── 雲端模式（Render）：本機無 state 檔 ───────────────────────────
+    # Gist 存的是 _build_crypto_data() 的完整輸出（positions 已是 list），
+    # 直接回傳即可，不可再丟進 _build_positions()（那會對 list 呼叫 .items() → 500）
+    if not BOT_STATE_FILE.exists():
+        data = _gist_get()
+        if data and isinstance(data.get("positions"), list):
+            data.setdefault("source", "gist")
+            return jsonify(data)
+        return jsonify({
+            "positions": [], "capital": 0, "last_run": "",
+            "recent_trades": [], "equity_curve": [], "total_pnl": 0,
+            "source": "gist-empty",
+        })
+
+    # ── 本機模式：從 raw bot state（positions 為 dict）逐筆處理 ────────
     ema_state  = load_bot_state()
     nfes_state = load_nfes_state()
     live_prices = get_live_prices()
