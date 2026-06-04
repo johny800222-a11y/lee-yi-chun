@@ -17,61 +17,71 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 
 # ── 路徑 & 雲端設定 ─────────────────────────────────────────────
 BASE_DIR        = Path(__file__).parent
-BOT_STATE_FILE  = BASE_DIR / "ema99_bot_state.json"
-NFES_STATE_FILE = BASE_DIR / "nfes_bot_state.json"
-MANUAL_FILE     = BASE_DIR / "portfolio_manual.json"
+EQUITY_DAILY_FILE    = BASE_DIR / "equity_daily.json"   # 每日 08:00 資金快照
+INITIAL_CAPITAL      = 10_000.0                          # 觀察期起始資金
+BOT_STATE_FILE       = BASE_DIR / "ema99_bot_state.json"
+NFES_STATE_FILE      = BASE_DIR / "nfes_bot_state.json"
+MANUAL_FILE          = BASE_DIR / "portfolio_manual.json"
+SAM_TRADES_FILE      = BASE_DIR / "brain" / "sams_brain_trades.json"
+SAM_STATE_FILE       = BASE_DIR / "brain" / "sams_brain_state.json"
 
-# JSONBin — 讓 Render 雲端也能讀到 bot 狀態
-JSONBIN_API_KEY       = os.getenv("JSONBIN_API_KEY", "")
-JSONBIN_BIN_ID        = os.getenv("JSONBIN_BIN_ID",  "")      # EMA99 bot
-JSONBIN_NFES_BIN_ID   = os.getenv("JSONBIN_NFES_BIN_ID", "")  # NFES bot
-# 手動持倉存在第二個 bin（可選，沒設就存本機 JSON）
-JSONBIN_MANUAL_BIN_ID = os.getenv("JSONBIN_MANUAL_BIN_ID", "")
+# GitHub Gist — 讓 Render 雲端也能讀到 bot 狀態
+GITHUB_TOKEN   = os.getenv("GITHUB_TOKEN2", "")
+GIST_ID        = os.getenv("GIST_ID",      "627811c22b1d404fdcbb6115f81fd1e7")
+GIST_FILENAME  = "portfolio_state.json"
 
 app = Flask(__name__, static_folder=str(BASE_DIR))
 
 # ─────────────────────────────────────────────────────────────────
-# JSONBin 工具
+# GitHub Gist 工具
 # ─────────────────────────────────────────────────────────────────
-_jb_cache: dict = {}
-_jb_cache_ts: float = 0.0
+_gist_cache: dict = {}
+_gist_cache_ts: float = 0.0
 
-def _jsonbin_get(bin_id: str) -> dict | None:
-    """讀取 JSONBin，cache 20 秒避免過度請求"""
-    global _jb_cache, _jb_cache_ts
-    cache_key = bin_id
+GIST_RAW_URL = f"https://gist.githubusercontent.com/johny800222-a11y/{GIST_ID}/raw/{GIST_FILENAME}"
+
+def _gist_get() -> dict | None:
+    """從 GitHub Gist public raw URL 讀取 portfolio 狀態，cache 30 秒（不需要 token）"""
+    global _gist_cache, _gist_cache_ts
     now = time.time()
-    if cache_key in _jb_cache and now - _jb_cache_ts < 20:
-        return _jb_cache[cache_key]
+    if _gist_cache and now - _gist_cache_ts < 30:
+        return _gist_cache
     try:
-        r = _requests.get(
-            f"https://api.jsonbin.io/v3/b/{bin_id}/latest",
-            headers={"X-Master-Key": JSONBIN_API_KEY},
-            timeout=8,
-        )
+        r = _requests.get(GIST_RAW_URL, timeout=8)
         if r.ok:
-            data = r.json().get("record", {})
-            _jb_cache[cache_key] = data
-            _jb_cache_ts = now
+            data = json.loads(r.text)
+            _gist_cache.update(data)
+            _gist_cache_ts = now
             return data
     except Exception:
         pass
     return None
 
-def _jsonbin_put(bin_id: str, data: dict) -> bool:
+def _gist_put(data: dict) -> bool:
+    """把 portfolio 狀態寫入 GitHub Gist"""
     try:
-        r = _requests.put(
-            f"https://api.jsonbin.io/v3/b/{bin_id}",
-            headers={"X-Master-Key": JSONBIN_API_KEY,
+        r = _requests.patch(
+            f"https://api.github.com/gists/{GIST_ID}",
+            headers={"Authorization": f"token {GITHUB_TOKEN}",
+                     "Accept": "application/vnd.github+json",
                      "Content-Type": "application/json"},
-            json=data, timeout=8,
+            json={"files": {GIST_FILENAME: {"content": json.dumps(data, ensure_ascii=False)}}},
+            timeout=8,
         )
         if r.ok:
-            _jb_cache[bin_id] = data
-            _jb_cache_ts = time.time()
+            _gist_cache.update(data)
+            _gist_cache_ts = time.time()
         return r.ok
     except Exception:
         return False
+
+# JSONBin 保留空殼（相容舊 env vars，不再使用）
+JSONBIN_API_KEY = ""
+JSONBIN_BIN_ID = ""
+JSONBIN_NFES_BIN_ID = ""
+JSONBIN_MANUAL_BIN_ID = ""
+def _jsonbin_get(bin_id): return None
+def _jsonbin_put(bin_id, data): return False
 
 # ─────────────────────────────────────────────────────────────────
 # 手動持倉（本機 JSON 或 JSONBin）
@@ -132,24 +142,69 @@ def to_binance_sym(ccxt_sym: str) -> str:
 # ─────────────────────────────────────────────────────────────────
 
 def load_bot_state() -> dict:
-    """優先從 JSONBin 讀（雲端 Render 用），否則讀本機 JSON"""
-    if JSONBIN_API_KEY and JSONBIN_BIN_ID:
-        data = _jsonbin_get(JSONBIN_BIN_ID)
-        if data:
-            return data
+    """優先讀本機 JSON（本機模式），否則從 Gist public raw URL 讀（Render 雲端模式）"""
     if BOT_STATE_FILE.exists():
         return json.loads(BOT_STATE_FILE.read_text())
+    # 雲端 Render：從 Gist public raw URL 讀（不需要 token）
+    data = _gist_get()
+    if data:
+        return data
     return {}
 
 def load_nfes_state() -> dict:
-    """讀取 NFES bot 狀態（本機 JSON 或 JSONBin）"""
-    if JSONBIN_API_KEY and JSONBIN_NFES_BIN_ID:
-        data = _jsonbin_get(JSONBIN_NFES_BIN_ID)
-        if data:
-            return data
+    """讀取 NFES bot 狀態（本機 JSON）"""
     if NFES_STATE_FILE.exists():
         return json.loads(NFES_STATE_FILE.read_text())
     return {}
+
+def _record_daily_equity(capital: float) -> None:
+    """每天 08:00 記錄一次資金快照（台灣時間 = UTC+8）"""
+    from datetime import timedelta
+    now_tw = datetime.now(timezone.utc) + timedelta(hours=8)
+    today  = now_tw.strftime("%Y-%m-%d")
+    hour   = now_tw.hour
+
+    # 讀取現有快照
+    if EQUITY_DAILY_FILE.exists():
+        snapshots: dict = json.loads(EQUITY_DAILY_FILE.read_text())
+    else:
+        snapshots = {"start": INITIAL_CAPITAL, "daily": {}}
+
+    # 08:00~08:59 且今天還沒記錄 → 寫入
+    if hour == 8 and today not in snapshots.get("daily", {}):
+        snapshots.setdefault("daily", {})[today] = round(capital, 2)
+        EQUITY_DAILY_FILE.write_text(json.dumps(snapshots, ensure_ascii=False, indent=2))
+
+    # 確保有起始點（第一次執行時補上）
+    if not snapshots.get("daily"):
+        snapshots["daily"]["2026-05-19"] = INITIAL_CAPITAL  # 觀察期第一天
+        EQUITY_DAILY_FILE.write_text(json.dumps(snapshots, ensure_ascii=False, indent=2))
+
+
+def _get_equity_curve(capital: float) -> list:
+    """回傳 [{date, capital}] 的資產曲線，最後一筆補上當前資金"""
+    if EQUITY_DAILY_FILE.exists():
+        snapshots = json.loads(EQUITY_DAILY_FILE.read_text())
+    else:
+        snapshots = {"start": INITIAL_CAPITAL, "daily": {}}
+
+    daily = snapshots.get("daily", {})
+    # 排序日期
+    points = sorted(daily.items())
+    # 確保有起始點
+    if not points or points[0][0] > "2026-05-19":
+        points.insert(0, ("2026-05-19", INITIAL_CAPITAL))
+    # 加上今天的即時資金
+    from datetime import timedelta
+    today = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime("%Y-%m-%d")
+    if not points or points[-1][0] < today:
+        points.append((today, round(capital, 2)))
+    else:
+        # 今天已有快照，更新成即時資金
+        points[-1] = (today, round(capital, 2))
+
+    return [{"date": d, "capital": c} for d, c in points]
+
 
 def _build_positions(positions: dict, strategy: str, live_prices: dict) -> list:
     """將 bot state positions dict 轉換為前端用的 list（含策略標籤）"""
@@ -249,12 +304,44 @@ def api_crypto():
     last_run = max(ema_last, nfes_last) if ema_last and nfes_last else (ema_last or nfes_last)
 
     source = "jsonbin" if (JSONBIN_API_KEY and JSONBIN_BIN_ID) else "local"
+    # 每日 08:00 記錄快照
+    _record_daily_equity(ema_capital)
+    # 資產曲線（每日快照）
+    equity_curve = _get_equity_curve(ema_capital)
+    # 總損益 = 現在資金 - 起始資金
+    total_pnl = round(ema_capital - INITIAL_CAPITAL, 2)
     return jsonify({
         "positions"    : all_positions,
-        "capital"      : round(ema_capital, 2),   # 共用資金，取 EMA99 的本金欄位
+        "capital"      : round(ema_capital, 2),
         "last_run"     : last_run,
         "recent_trades": recent,
+        "equity_curve" : equity_curve,   # [{date, capital}] 每日資金快照
+        "total_pnl"    : total_pnl,      # 真實總損益
         "source"       : source,
+    })
+
+
+@app.route("/api/debug")
+def api_debug():
+    """排錯用：顯示執行環境狀態"""
+    import os
+    gist_test = None
+    gist_err = None
+    try:
+        r = _requests.get(GIST_RAW_URL, timeout=8)
+        gist_test = {"status": r.status_code, "ok": r.ok, "len": len(r.text), "preview": r.text[:100]}
+    except Exception as e:
+        gist_err = str(e)
+
+    return jsonify({
+        "GIST_RAW_URL"     : GIST_RAW_URL,
+        "GIST_ID"          : GIST_ID,
+        "GITHUB_TOKEN_set" : bool(GITHUB_TOKEN),
+        "BOT_STATE_exists" : BOT_STATE_FILE.exists(),
+        "BOT_STATE_path"   : str(BOT_STATE_FILE),
+        "gist_fetch"       : gist_test,
+        "gist_err"         : gist_err,
+        "load_bot_state"   : load_bot_state().get("capital", "KEY_MISSING"),
     })
 
 
@@ -322,6 +409,156 @@ def delete_manual(pos_id):
 
 
 # ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
+# sam 思考視覺化頁面
+# ─────────────────────────────────────────────────────────────────
+SAM_THINKING_HTML = r"""<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 sam 的思考</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: -apple-system, sans-serif; padding: 16px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #8b949e; font-size: 13px; margin-bottom: 20px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .card.approved { border-left: 4px solid #3fb950; }
+  .card.rejected { border-left: 4px solid #8b949e; }
+  .card.long  { border-left: 4px solid #3fb950; }
+  .card.short { border-left: 4px solid #f85149; }
+  .sym { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .badge.long  { background: #1a3a26; color: #3fb950; }
+  .badge.short { background: #3a1a1a; color: #f85149; }
+  .badge.skip  { background: #2a2a2a; color: #8b949e; }
+  .ts { color: #8b949e; font-size: 12px; margin-top: 2px; margin-bottom: 12px; }
+  .section { margin-bottom: 10px; }
+  .section-title { font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .market-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .market-item { background: #0d1117; border-radius: 6px; padding: 6px 8px; }
+  .market-item .label { font-size: 10px; color: #8b949e; }
+  .market-item .value { font-size: 13px; font-weight: 600; }
+  .trend-bull { color: #3fb950; }
+  .trend-bear { color: #f85149; }
+  .trend-neutral { color: #d29922; }
+  .thinking-text { font-size: 13px; line-height: 1.7; color: #c9d1d9; background: #0d1117; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; }
+  .decision-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .score-bar { flex: 1; min-width: 120px; }
+  .score-label { font-size: 11px; color: #8b949e; margin-bottom: 3px; }
+  .bar-bg { background: #21262d; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .lev-badge { background: #1c2a3a; color: #58a6ff; border-radius: 6px; padding: 3px 10px; font-size: 13px; font-weight: 700; }
+  .reason { font-size: 13px; color: #c9d1d9; font-style: italic; margin-top: 8px; }
+  .stats-bar { display: flex; gap: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat .n { font-size: 20px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: #8b949e; }
+  .refresh-btn { position: fixed; bottom: 20px; right: 20px; background: #238636; color: #fff; border: none; border-radius: 50%; width: 48px; height: 48px; font-size: 22px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .empty { text-align: center; color: #8b949e; padding: 40px; }
+  .flow { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; color: #8b949e; flex-wrap: wrap; }
+  .flow-step { background: #21262d; border-radius: 6px; padding: 3px 8px; }
+  .flow-arrow { color: #30363d; }
+</style>
+</head>
+<body>
+<h1>🧠 sam 的思考過程</h1>
+<p class="sub">每一筆都是我自己的判斷，沒有固定公式</p>
+
+<div class="stats-bar" id="stats-bar">
+  <div class="stat"><div class="n" id="stat-total">-</div><div class="l">掃描</div></div>
+  <div class="stat"><div class="n" id="stat-approved" style="color:#3fb950">-</div><div class="l">進場</div></div>
+  <div class="stat"><div class="n" id="stat-equity" style="color:#58a6ff">-</div><div class="l">資金(U)</div></div>
+  <div class="stat"><div class="n" id="stat-trades">-</div><div class="l">完成交易</div></div>
+  <div class="stat"><div class="n" id="stat-positions">-</div><div class="l">持倉中</div></div>
+</div>
+
+<div class="flow">
+  <span class="flow-step">📡 市場掃描</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">🔍 結構分析</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">💭 自由判斷</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">⚡ 決策輸出</span>
+</div>
+
+<div id="list"><div class="empty">載入中...</div></div>
+<button class="refresh-btn" onclick="load()">↻</button>
+
+<script>
+async function load() {
+  const r = await fetch('/api/sam/thinking');
+  const d = await r.json();
+  const logs = d.thinking || [];
+  const state = d.state || {};
+
+  document.getElementById('stat-total').textContent = logs.length;
+  document.getElementById('stat-approved').textContent = logs.filter(l=>l.approved).length;
+  document.getElementById('stat-equity').textContent = (state.equity||1000).toFixed(0);
+  document.getElementById('stat-trades').textContent = state.total_trades || 0;
+  document.getElementById('stat-positions').textContent = Object.keys(state.positions||{}).length;
+
+  const el = document.getElementById('list');
+  if (!logs.length) { el.innerHTML = '<div class="empty">還沒有思考記錄，sam 正在掃描中...</div>'; return; }
+
+  el.innerHTML = logs.map(log => {
+    const approved = log.approved;
+    const side = log.side || '';
+    const score = log.score || 0;
+    const lev = log.leverage || 1;
+    const m = log.market || {};
+    const trend = m.trend || 'neutral';
+    const trendLabel = trend==='bull' ? '<span class="trend-bull">📈 多頭</span>' : trend==='bear' ? '<span class="trend-bear">📉 空頭</span>' : '<span class="trend-neutral">➡️ 中性</span>';
+    const ts = (log.timestamp||'').substring(0,16).replace('T',' ');
+    const barColor = score>=70?'#3fb950':score>=55?'#d29922':'#8b949e';
+    const sideClass = !approved?'skip':side==='long'?'long':'short';
+    const sideLabel = !approved?'跳過':side==='long'?'做多':'做空';
+    const levStars = '⚡'.repeat(lev);
+
+    return `<div class="card ${sideClass}">
+      <div class="sym">
+        ${log.symbol||'?'}
+        <span class="badge ${sideClass}">${sideLabel}</span>
+        ${approved ? '<span class="lev-badge">'+levStars+' '+lev+'x</span>' : ''}
+      </div>
+      <div class="ts">${ts}</div>
+
+      <div class="section">
+        <div class="section-title">📊 我看到的市場</div>
+        <div class="market-grid">
+          <div class="market-item"><div class="label">趨勢</div><div class="value">${trendLabel}</div></div>
+          <div class="market-item"><div class="label">ATR%</div><div class="value">${((m.atr_pct||0)*100).toFixed(2)}%</div></div>
+          <div class="market-item"><div class="label">量比</div><div class="value">${(m.vol_ratio||0).toFixed(1)}x</div></div>
+          <div class="market-item"><div class="label">EMA99</div><div class="value">${(m.ema99||0).toFixed(4)}</div></div>
+          <div class="market-item"><div class="label">EMA200</div><div class="value">${(m.ema200||0).toFixed(4)}</div></div>
+          <div class="market-item"><div class="label">現價</div><div class="value">${(m.price||0).toFixed(4)}</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">💭 我的判斷</div>
+        <div class="thinking-text">${(log.brain_view||'（無）').substring(0,400)}${(log.brain_view||'').length>400?'...':''}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">⚡ 我的決策</div>
+        <div class="score-bar">
+          <div class="score-label">信心 ${score}/100</div>
+          <div class="bar-bg"><div class="bar-fill" style="width:${score}%;background:${barColor}"></div></div>
+        </div>
+        <div class="reason">${log.reason||''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>"""
+
 # 前端 HTML（PWA）
 # ─────────────────────────────────────────────────────────────────
 
@@ -560,7 +797,7 @@ HTML = r"""<!DOCTYPE html>
 
 <script>
 let currentTab = 'all';
-let cryptoData  = { positions: [], capital: 0, recent_trades: [] };
+let cryptoData  = { positions: [], capital: 0, recent_trades: [], trade_pnl_sum: 0, pnl_offset: 0 };
 let manualData  = { positions: [] };
 let editingId   = null;
 
@@ -855,26 +1092,35 @@ function _applyCustomRange() {
 }
 
 function _drawEquity(trades) {
-  // 以時間排序，累積 PnL
-  const sorted = [...trades].sort((a,b) => new Date(a.exit_ts||0) - new Date(b.exit_ts||0));
-  let cum = 0;
+  const INIT = 10000;
+  // 優先用每日快照曲線
+  const curve = cryptoData.equity_curve || [];
   const labels = [], data = [];
-  sorted.forEach(t => {
-    cum += (t.pnl || 0);
-    const d = t.exit_ts ? new Date(t.exit_ts).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'}) : '';
-    labels.push(d);
-    data.push(parseFloat(cum.toFixed(2)));
-  });
-  // 補 0 起始點
-  labels.unshift('起始'); data.unshift(0);
+  if (curve.length >= 2) {
+    curve.forEach(pt => {
+      labels.push(pt.date ? pt.date.slice(5) : '');  // MM-DD
+      data.push(pt.capital);
+    });
+  } else {
+    // fallback：用 trades 累積（舊邏輯）
+    const sorted = [...trades].sort((a,b) => new Date(a.exit_ts||0) - new Date(b.exit_ts||0));
+    let cum = 0;
+    sorted.forEach(t => {
+      cum += (t.pnl || 0);
+      const d = t.exit_ts ? new Date(t.exit_ts).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'}) : '';
+      labels.push(d);
+      data.push(parseFloat((INIT + cum).toFixed(2)));
+    });
+    labels.unshift('起始'); data.unshift(INIT);
+  }
 
   const ctx = document.getElementById('equity-canvas');
   if (!ctx) return;
   if (_equityChart) { _equityChart.destroy(); _equityChart = null; }
 
   const lastVal = data[data.length - 1];
-  const lineColor = lastVal >= 0 ? '#30d158' : '#ff453a';
-  const fillColor = lastVal >= 0 ? 'rgba(48,209,88,.15)' : 'rgba(255,69,58,.15)';
+  const lineColor = lastVal >= INIT ? '#30d158' : '#ff453a';
+  const fillColor = lastVal >= INIT ? 'rgba(48,209,88,.15)' : 'rgba(255,69,58,.15)';
 
   _equityChart = new Chart(ctx, {
     type: 'line',
@@ -897,15 +1143,22 @@ function _drawEquity(trades) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => (ctx.parsed.y >= 0 ? '+' : '') + '$' + ctx.parsed.y.toFixed(2)
+            label: ctx => {
+              const diff = ctx.parsed.y - INIT;
+              return `${ctx.parsed.y.toFixed(0)} U  (${diff >= 0 ? '+' : ''}${diff.toFixed(2)})`;
+            }
           }
         }
       },
       scales: {
         x: { ticks: { color:'#8e8e93', font:{size:10}, maxTicksLimit:8 }, grid:{color:'rgba(255,255,255,.05)'} },
-        y: { ticks: { color:'#8e8e93', font:{size:10},
-                      callback: v => (v>=0?'+':'')+v },
-             grid:{ color:'rgba(255,255,255,.05)' } }
+        y: {
+          ticks: {
+            color:'#8e8e93', font:{size:10},
+            callback: v => v.toFixed(0) + ' U'
+          },
+          grid:{ color:'rgba(255,255,255,.05)' }
+        }
       }
     }
   });
@@ -918,7 +1171,11 @@ function renderTrades() {
   // ── 統計 ───────────────────────────────────────────────────
   const wins    = filtered.filter(t => t.pnl > 0);
   const losses  = filtered.filter(t => t.pnl <= 0);
-  const totalPnl = filtered.reduce((s,t) => s + (t.pnl||0), 0);
+  // 總損益：全期用真實值（capital-10000），篩選期間用 trades 加總
+  const isAllTime  = (_tradeRange === '30' && filtered.length === allTrades.length) || _tradeRange === 'all';
+  const totalPnl   = (_tradeRange === '30' && filtered.length >= allTrades.length)
+                     ? (cryptoData.total_pnl || 0)
+                     : filtered.reduce((s,t) => s + (t.pnl||0), 0);
   const winRate = filtered.length ? (wins.length / filtered.length * 100) : 0;
   const avgWin  = wins.length   ? wins.reduce((s,t) => s+t.pnl,0) / wins.length   : 0;
   const avgLoss = losses.length ? losses.reduce((s,t) => s+t.pnl,0) / losses.length : 0;
@@ -962,7 +1219,7 @@ function renderTrades() {
 
   <!-- 資產曲線 -->
   <div class="equity-wrap">
-    <div class="equity-title">📈 資產曲線（累積 PnL）共 ${filtered.length} 筆</div>
+    <div class="equity-title">📈 資產曲線（每日 08:00 快照）起始 10,000U → 現在 ${(cryptoData.capital||10000).toFixed(0)}U</div>
     <canvas id="equity-canvas" height="160"></canvas>
   </div>
 
@@ -1114,6 +1371,29 @@ setInterval(loadAll, 30000);
 </body>
 </html>"""
 
+@app.route("/api/sam/thinking")
+def api_sam_thinking():
+    """sam 最近的思考快照"""
+    thinking_file = Path(__file__).parent / "brain" / "sams_thinking_log.json"
+    sam_state_file = Path(__file__).parent / "brain" / "sams_brain_state.json"
+    logs = []
+    state = {}
+    if thinking_file.exists():
+        try:
+            logs = json.loads(thinking_file.read_text())
+        except Exception:
+            pass
+    if sam_state_file.exists():
+        try:
+            state = json.loads(sam_state_file.read_text())
+        except Exception:
+            pass
+    return jsonify({"thinking": list(reversed(logs[-20:])), "state": state})
+
+@app.route("/sam")
+def sam_thinking_page():
+    return Response(SAM_THINKING_HTML, mimetype="text/html")
+
 @app.route("/")
 def index():
     return Response(HTML, mimetype="text/html")
@@ -1131,6 +1411,64 @@ def manifest():
     }
     return jsonify(m)
 
+def _build_crypto_data() -> dict:
+    """組合 /api/crypto 的數據（供 JSONBin 同步用）"""
+    import threading
+    ema_state   = load_bot_state()
+    nfes_state  = load_nfes_state()
+    live_prices = get_live_prices()
+
+    ema_positions = _build_positions(
+        ema_state.get("positions", {}), strategy="EMA99", live_prices=live_prices)
+    nfes_positions = _build_positions(
+        nfes_state.get("positions", {}),
+        strategy=nfes_state.get("strategy", "NFES 強化版"), live_prices=live_prices)
+
+    all_trades = []
+    for t in ema_state.get("trades", []):
+        tc = dict(t); tc["strategy"] = tc.get("strategy", "EMA99"); all_trades.append(tc)
+    for t in nfes_state.get("trades", []):
+        tc = dict(t); tc["strategy"] = tc.get("strategy", "NFES 強化版"); all_trades.append(tc)
+    recent = sorted(all_trades, key=lambda x: x.get("exit_ts", ""))
+
+    ema_capital = ema_state.get("capital", 0)
+    _record_daily_equity(ema_capital)
+    equity_curve = _get_equity_curve(ema_capital)
+    total_pnl = round(ema_capital - INITIAL_CAPITAL, 2)
+    last_run = max(
+        ema_state.get("last_run", ""), nfes_state.get("last_run", "")
+    ) or ema_state.get("last_run", "")
+
+    return {
+        "positions"    : ema_positions + nfes_positions,
+        "capital"      : round(ema_capital, 2),
+        "last_run"     : last_run,
+        "recent_trades": recent,
+        "equity_curve" : equity_curve,
+        "total_pnl"    : total_pnl,
+        "source"       : "local",
+    }
+
+
+def _jsonbin_sync_loop():
+    """背景執行緒：每 60 秒把最新狀態推送到 GitHub Gist，讓 Render 可以讀到"""
+    import threading
+    if not (GITHUB_TOKEN and GIST_ID):
+        return
+    def loop():
+        while True:
+            try:
+                data = _build_crypto_data()
+                ok = _gist_put(data)
+                print(f"[Gist sync] {'✅ 推送成功' if ok else '❌ 推送失敗'} capital={data.get('capital')}")
+            except Exception as e:
+                print(f"[Gist sync] 錯誤: {e}")
+            time.sleep(60)
+    t = threading.Thread(target=loop, daemon=True, name="gist-sync")
+    t.start()
+    print("✅ GitHub Gist 同步執行緒已啟動（每 60 秒推送）")
+
+
 if __name__ == "__main__":
     print("=" * 50)
     print("📊 投資組合 App 啟動中...")
@@ -1142,4 +1480,5 @@ if __name__ == "__main__":
     except:
         pass
     print("=" * 50)
+    _jsonbin_sync_loop()
     app.run(host="0.0.0.0", port=5050, debug=False)
