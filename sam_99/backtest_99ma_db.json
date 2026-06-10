@@ -1,0 +1,2214 @@
+{
+  "BTC": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 23,
+        "wins": 5,
+        "losses": 16,
+        "timeouts": 2,
+        "win_rate": 21.7,
+        "avg_r": -0.31,
+        "long_sigs": 11,
+        "long_wins": 2,
+        "short_sigs": 12,
+        "short_wins": 3
+      }
+    ],
+    "signals": 23,
+    "wins": 5,
+    "losses": 16,
+    "timeouts": 2,
+    "long_sigs": 11,
+    "long_wins": 2,
+    "short_sigs": 12,
+    "short_wins": 3,
+    "cum_win_rate": 23.8,
+    "runs_count": 1
+  },
+  "ETH": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 24,
+        "wins": 7,
+        "losses": 17,
+        "timeouts": 0,
+        "win_rate": 29.2,
+        "avg_r": -0.27,
+        "long_sigs": 9,
+        "long_wins": 3,
+        "short_sigs": 15,
+        "short_wins": 4
+      }
+    ],
+    "signals": 24,
+    "wins": 7,
+    "losses": 17,
+    "timeouts": 0,
+    "long_sigs": 9,
+    "long_wins": 3,
+    "short_sigs": 15,
+    "short_wins": 4,
+    "cum_win_rate": 29.2,
+    "runs_count": 1
+  },
+  "BNB": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 27,
+        "wins": 11,
+        "losses": 14,
+        "timeouts": 2,
+        "win_rate": 40.7,
+        "avg_r": 0.18,
+        "long_sigs": 15,
+        "long_wins": 8,
+        "short_sigs": 12,
+        "short_wins": 3
+      }
+    ],
+    "signals": 27,
+    "wins": 11,
+    "losses": 14,
+    "timeouts": 2,
+    "long_sigs": 15,
+    "long_wins": 8,
+    "short_sigs": 12,
+    "short_wins": 3,
+    "cum_win_rate": 44.0,
+    "runs_count": 1
+  },
+  "SOL": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 18,
+        "wins": 5,
+        "losses": 12,
+        "timeouts": 1,
+        "win_rate": 27.8,
+        "avg_r": -0.31,
+        "long_sigs": 9,
+        "long_wins": 3,
+        "short_sigs": 9,
+        "short_wins": 2
+      }
+    ],
+    "signals": 18,
+    "wins": 5,
+    "losses": 12,
+    "timeouts": 1,
+    "long_sigs": 9,
+    "long_wins": 3,
+    "short_sigs": 9,
+    "short_wins": 2,
+    "cum_win_rate": 29.4,
+    "runs_count": 1
+  },
+  "ADA": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 16,
+        "wins": 10,
+        "losses": 6,
+        "timeouts": 0,
+        "win_rate": 62.5,
+        "avg_r": 0.98,
+        "long_sigs": 8,
+        "long_wins": 5,
+        "short_sigs": 8,
+        "short_wins": 5
+      }
+    ],
+    "signals": 16,
+    "wins": 10,
+    "losses": 6,
+    "timeouts": 0,
+    "long_sigs": 8,
+    "long_wins": 5,
+    "short_sigs": 8,
+    "short_wins": 5,
+    "cum_win_rate": 62.5,
+    "runs_count": 1
+  },
+  "LINK": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 19,
+        "wins": 13,
+        "losses": 6,
+        "timeouts": 0,
+        "win_rate": 68.4,
+        "avg_r": 0.65,
+        "long_sigs": 8,
+        "long_wins": 6,
+        "short_sigs": 11,
+        "short_wins": 7
+      }
+    ],
+    "signals": 19,
+    "wins": 13,
+    "losses": 6,
+    "timeouts": 0,
+    "long_sigs": 8,
+    "long_wins": 6,
+    "short_sigs": 11,
+    "short_wins": 7,
+    "cum_win_rate": 68.4,
+    "runs_count": 1
+  },
+  "XRP": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 29,
+        "wins": 12,
+        "losses": 17,
+        "timeouts": 0,
+        "win_rate": 41.4,
+        "avg_r": 0.05,
+        "long_sigs": 10,
+        "long_wins": 3,
+        "short_sigs": 19,
+        "short_wins": 9
+      }
+    ],
+    "signals": 29,
+    "wins": 12,
+    "losses": 17,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 3,
+    "short_sigs": 19,
+    "short_wins": 9,
+    "cum_win_rate": 41.4,
+    "runs_count": 1
+  },
+  "TRX": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 28,
+        "wins": 9,
+        "losses": 17,
+        "timeouts": 2,
+        "win_rate": 32.1,
+        "avg_r": -0.21,
+        "long_sigs": 15,
+        "long_wins": 4,
+        "short_sigs": 13,
+        "short_wins": 5
+      }
+    ],
+    "signals": 28,
+    "wins": 9,
+    "losses": 17,
+    "timeouts": 2,
+    "long_sigs": 15,
+    "long_wins": 4,
+    "short_sigs": 13,
+    "short_wins": 5,
+    "cum_win_rate": 34.6,
+    "runs_count": 1
+  },
+  "DOGE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 7,
+        "losses": 14,
+        "timeouts": 0,
+        "win_rate": 33.3,
+        "avg_r": -0.05,
+        "long_sigs": 8,
+        "long_wins": 4,
+        "short_sigs": 13,
+        "short_wins": 3
+      }
+    ],
+    "signals": 21,
+    "wins": 7,
+    "losses": 14,
+    "timeouts": 0,
+    "long_sigs": 8,
+    "long_wins": 4,
+    "short_sigs": 13,
+    "short_wins": 3,
+    "cum_win_rate": 33.3,
+    "runs_count": 1
+  },
+  "HYPE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 14,
+        "wins": 7,
+        "losses": 7,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.24,
+        "long_sigs": 8,
+        "long_wins": 4,
+        "short_sigs": 6,
+        "short_wins": 3
+      }
+    ],
+    "signals": 14,
+    "wins": 7,
+    "losses": 7,
+    "timeouts": 0,
+    "long_sigs": 8,
+    "long_wins": 4,
+    "short_sigs": 6,
+    "short_wins": 3,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "ZEC": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 23,
+        "wins": 8,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 34.8,
+        "avg_r": 0.16,
+        "long_sigs": 14,
+        "long_wins": 3,
+        "short_sigs": 9,
+        "short_wins": 5
+      }
+    ],
+    "signals": 23,
+    "wins": 8,
+    "losses": 15,
+    "timeouts": 0,
+    "long_sigs": 14,
+    "long_wins": 3,
+    "short_sigs": 9,
+    "short_wins": 5,
+    "cum_win_rate": 34.8,
+    "runs_count": 1
+  },
+  "CC": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 27,
+        "wins": 11,
+        "losses": 16,
+        "timeouts": 0,
+        "win_rate": 40.7,
+        "avg_r": 0.14,
+        "long_sigs": 10,
+        "long_wins": 4,
+        "short_sigs": 17,
+        "short_wins": 7
+      }
+    ],
+    "signals": 27,
+    "wins": 11,
+    "losses": 16,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 4,
+    "short_sigs": 17,
+    "short_wins": 7,
+    "cum_win_rate": 40.7,
+    "runs_count": 1
+  },
+  "XLM": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 22,
+        "wins": 6,
+        "losses": 16,
+        "timeouts": 0,
+        "win_rate": 27.3,
+        "avg_r": -0.15,
+        "long_sigs": 6,
+        "long_wins": 1,
+        "short_sigs": 16,
+        "short_wins": 5
+      }
+    ],
+    "signals": 22,
+    "wins": 6,
+    "losses": 16,
+    "timeouts": 0,
+    "long_sigs": 6,
+    "long_wins": 1,
+    "short_sigs": 16,
+    "short_wins": 5,
+    "cum_win_rate": 27.3,
+    "runs_count": 1
+  },
+  "XMR": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 29,
+        "wins": 7,
+        "losses": 22,
+        "timeouts": 0,
+        "win_rate": 24.1,
+        "avg_r": -0.3,
+        "long_sigs": 15,
+        "long_wins": 4,
+        "short_sigs": 14,
+        "short_wins": 3
+      }
+    ],
+    "signals": 29,
+    "wins": 7,
+    "losses": 22,
+    "timeouts": 0,
+    "long_sigs": 15,
+    "long_wins": 4,
+    "short_sigs": 14,
+    "short_wins": 3,
+    "cum_win_rate": 24.1,
+    "runs_count": 1
+  },
+  "TON": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 28,
+        "wins": 7,
+        "losses": 21,
+        "timeouts": 0,
+        "win_rate": 25.0,
+        "avg_r": -0.25,
+        "long_sigs": 16,
+        "long_wins": 5,
+        "short_sigs": 12,
+        "short_wins": 2
+      }
+    ],
+    "signals": 28,
+    "wins": 7,
+    "losses": 21,
+    "timeouts": 0,
+    "long_sigs": 16,
+    "long_wins": 5,
+    "short_sigs": 12,
+    "short_wins": 2,
+    "cum_win_rate": 25.0,
+    "runs_count": 1
+  },
+  "BCH": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 19,
+        "wins": 9,
+        "losses": 10,
+        "timeouts": 0,
+        "win_rate": 47.4,
+        "avg_r": 0.15,
+        "long_sigs": 10,
+        "long_wins": 6,
+        "short_sigs": 9,
+        "short_wins": 3
+      }
+    ],
+    "signals": 19,
+    "wins": 9,
+    "losses": 10,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 6,
+    "short_sigs": 9,
+    "short_wins": 3,
+    "cum_win_rate": 47.4,
+    "runs_count": 1
+  },
+  "M": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 26,
+        "wins": 12,
+        "losses": 14,
+        "timeouts": 0,
+        "win_rate": 46.2,
+        "avg_r": 0.35,
+        "long_sigs": 15,
+        "long_wins": 10,
+        "short_sigs": 11,
+        "short_wins": 2
+      }
+    ],
+    "signals": 26,
+    "wins": 12,
+    "losses": 14,
+    "timeouts": 0,
+    "long_sigs": 15,
+    "long_wins": 10,
+    "short_sigs": 11,
+    "short_wins": 2,
+    "cum_win_rate": 46.2,
+    "runs_count": 1
+  },
+  "HBAR": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 18,
+        "wins": 3,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 16.7,
+        "avg_r": -0.47,
+        "long_sigs": 5,
+        "long_wins": 0,
+        "short_sigs": 13,
+        "short_wins": 3
+      }
+    ],
+    "signals": 18,
+    "wins": 3,
+    "losses": 15,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 0,
+    "short_sigs": 13,
+    "short_wins": 3,
+    "cum_win_rate": 16.7,
+    "runs_count": 1
+  },
+  "LTC": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 18,
+        "wins": 8,
+        "losses": 10,
+        "timeouts": 0,
+        "win_rate": 44.4,
+        "avg_r": 0.25,
+        "long_sigs": 5,
+        "long_wins": 2,
+        "short_sigs": 13,
+        "short_wins": 6
+      }
+    ],
+    "signals": 18,
+    "wins": 8,
+    "losses": 10,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 2,
+    "short_sigs": 13,
+    "short_wins": 6,
+    "cum_win_rate": 44.4,
+    "runs_count": 1
+  },
+  "SUI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 27,
+        "wins": 6,
+        "losses": 21,
+        "timeouts": 0,
+        "win_rate": 22.2,
+        "avg_r": -0.28,
+        "long_sigs": 10,
+        "long_wins": 2,
+        "short_sigs": 17,
+        "short_wins": 4
+      }
+    ],
+    "signals": 27,
+    "wins": 6,
+    "losses": 21,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 2,
+    "short_sigs": 17,
+    "short_wins": 4,
+    "cum_win_rate": 22.2,
+    "runs_count": 1
+  },
+  "AVAX": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 26,
+        "wins": 10,
+        "losses": 14,
+        "timeouts": 2,
+        "win_rate": 38.5,
+        "avg_r": 0.1,
+        "long_sigs": 15,
+        "long_wins": 6,
+        "short_sigs": 11,
+        "short_wins": 4
+      }
+    ],
+    "signals": 26,
+    "wins": 10,
+    "losses": 14,
+    "timeouts": 2,
+    "long_sigs": 15,
+    "long_wins": 6,
+    "short_sigs": 11,
+    "short_wins": 4,
+    "cum_win_rate": 41.7,
+    "runs_count": 1
+  },
+  "LAB": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 15,
+        "wins": 4,
+        "losses": 11,
+        "timeouts": 0,
+        "win_rate": 26.7,
+        "avg_r": -0.27,
+        "long_sigs": 12,
+        "long_wins": 3,
+        "short_sigs": 3,
+        "short_wins": 1
+      }
+    ],
+    "signals": 15,
+    "wins": 4,
+    "losses": 11,
+    "timeouts": 0,
+    "long_sigs": 12,
+    "long_wins": 3,
+    "short_sigs": 3,
+    "short_wins": 1,
+    "cum_win_rate": 26.7,
+    "runs_count": 1
+  },
+  "NEAR": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 15,
+        "wins": 7,
+        "losses": 8,
+        "timeouts": 0,
+        "win_rate": 46.7,
+        "avg_r": 0.23,
+        "long_sigs": 7,
+        "long_wins": 5,
+        "short_sigs": 8,
+        "short_wins": 2
+      }
+    ],
+    "signals": 15,
+    "wins": 7,
+    "losses": 8,
+    "timeouts": 0,
+    "long_sigs": 7,
+    "long_wins": 5,
+    "short_sigs": 8,
+    "short_wins": 2,
+    "cum_win_rate": 46.7,
+    "runs_count": 1
+  },
+  "XAUT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 18,
+        "wins": 9,
+        "losses": 9,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": -0.0,
+        "long_sigs": 5,
+        "long_wins": 1,
+        "short_sigs": 13,
+        "short_wins": 8
+      }
+    ],
+    "signals": 18,
+    "wins": 9,
+    "losses": 9,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 1,
+    "short_sigs": 13,
+    "short_wins": 8,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "TAO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 29,
+        "wins": 11,
+        "losses": 18,
+        "timeouts": 0,
+        "win_rate": 37.9,
+        "avg_r": 0.05,
+        "long_sigs": 15,
+        "long_wins": 4,
+        "short_sigs": 14,
+        "short_wins": 7
+      }
+    ],
+    "signals": 29,
+    "wins": 11,
+    "losses": 18,
+    "timeouts": 0,
+    "long_sigs": 15,
+    "long_wins": 4,
+    "short_sigs": 14,
+    "short_wins": 7,
+    "cum_win_rate": 37.9,
+    "runs_count": 1
+  },
+  "PAXG": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 10,
+        "losses": 11,
+        "timeouts": 0,
+        "win_rate": 47.6,
+        "avg_r": 0.01,
+        "long_sigs": 4,
+        "long_wins": 1,
+        "short_sigs": 17,
+        "short_wins": 9
+      }
+    ],
+    "signals": 21,
+    "wins": 10,
+    "losses": 11,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 1,
+    "short_sigs": 17,
+    "short_wins": 9,
+    "cum_win_rate": 47.6,
+    "runs_count": 1
+  },
+  "WLFI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 27,
+        "wins": 7,
+        "losses": 19,
+        "timeouts": 1,
+        "win_rate": 25.9,
+        "avg_r": -0.19,
+        "long_sigs": 13,
+        "long_wins": 2,
+        "short_sigs": 14,
+        "short_wins": 5
+      }
+    ],
+    "signals": 27,
+    "wins": 7,
+    "losses": 19,
+    "timeouts": 1,
+    "long_sigs": 13,
+    "long_wins": 2,
+    "short_sigs": 14,
+    "short_wins": 5,
+    "cum_win_rate": 26.9,
+    "runs_count": 1
+  },
+  "ONDO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 22,
+        "wins": 7,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 31.8,
+        "avg_r": 0.23,
+        "long_sigs": 15,
+        "long_wins": 4,
+        "short_sigs": 7,
+        "short_wins": 3
+      }
+    ],
+    "signals": 22,
+    "wins": 7,
+    "losses": 15,
+    "timeouts": 0,
+    "long_sigs": 15,
+    "long_wins": 4,
+    "short_sigs": 7,
+    "short_wins": 3,
+    "cum_win_rate": 31.8,
+    "runs_count": 1
+  },
+  "WLD": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 2,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.67,
+        "long_sigs": 1,
+        "long_wins": 0,
+        "short_sigs": 1,
+        "short_wins": 1
+      }
+    ],
+    "signals": 2,
+    "wins": 1,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 0,
+    "short_sigs": 1,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "ASTER": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 12,
+        "wins": 4,
+        "losses": 8,
+        "timeouts": 0,
+        "win_rate": 33.3,
+        "avg_r": -0.2,
+        "long_sigs": 4,
+        "long_wins": 2,
+        "short_sigs": 8,
+        "short_wins": 2
+      }
+    ],
+    "signals": 12,
+    "wins": 4,
+    "losses": 8,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 2,
+    "short_sigs": 8,
+    "short_wins": 2,
+    "cum_win_rate": 33.3,
+    "runs_count": 1
+  },
+  "UNI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 5,
+        "wins": 1,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 20.0,
+        "avg_r": -0.38,
+        "long_sigs": 4,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 5,
+    "wins": 1,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 20.0,
+    "runs_count": 1
+  },
+  "ETC": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 5,
+        "wins": 1,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 20.0,
+        "avg_r": -0.49,
+        "long_sigs": 4,
+        "long_wins": 0,
+        "short_sigs": 1,
+        "short_wins": 1
+      }
+    ],
+    "signals": 5,
+    "wins": 1,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 0,
+    "short_sigs": 1,
+    "short_wins": 1,
+    "cum_win_rate": 20.0,
+    "runs_count": 1
+  },
+  "AAVE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 2,
+        "losses": 2,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.63,
+        "long_sigs": 1,
+        "long_wins": 1,
+        "short_sigs": 3,
+        "short_wins": 1
+      }
+    ],
+    "signals": 4,
+    "wins": 2,
+    "losses": 2,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 1,
+    "short_sigs": 3,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "DEXE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 2,
+        "losses": 2,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.48,
+        "long_sigs": 1,
+        "long_wins": 1,
+        "short_sigs": 3,
+        "short_wins": 1
+      }
+    ],
+    "signals": 4,
+    "wins": 2,
+    "losses": 2,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 1,
+    "short_sigs": 3,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "STABLE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 6,
+        "wins": 2,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 33.3,
+        "avg_r": 0.69,
+        "long_sigs": 3,
+        "long_wins": 1,
+        "short_sigs": 3,
+        "short_wins": 1
+      }
+    ],
+    "signals": 6,
+    "wins": 2,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 1,
+    "short_sigs": 3,
+    "short_wins": 1,
+    "cum_win_rate": 33.3,
+    "runs_count": 1
+  },
+  "ALGO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 2,
+        "losses": 2,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.12,
+        "long_sigs": 3,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 1
+      }
+    ],
+    "signals": 4,
+    "wins": 2,
+    "losses": 2,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "JST": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 3,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 75.0,
+        "avg_r": 0.7,
+        "long_sigs": 2,
+        "long_wins": 2,
+        "short_sigs": 2,
+        "short_wins": 1
+      }
+    ],
+    "signals": 4,
+    "wins": 3,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 2,
+    "long_wins": 2,
+    "short_sigs": 2,
+    "short_wins": 1,
+    "cum_win_rate": 75.0,
+    "runs_count": 1
+  },
+  "FIL": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 2,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.55,
+        "long_sigs": 1,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 2,
+    "wins": 1,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "JTO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 2,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 1.17,
+        "long_sigs": 0,
+        "long_wins": 0,
+        "short_sigs": 2,
+        "short_wins": 1
+      }
+    ],
+    "signals": 2,
+    "wins": 1,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 0,
+    "long_wins": 0,
+    "short_sigs": 2,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "ETHFI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 12,
+        "wins": 0,
+        "losses": 12,
+        "timeouts": 0,
+        "win_rate": 0.0,
+        "avg_r": -0.94,
+        "long_sigs": 5,
+        "long_wins": 0,
+        "short_sigs": 7,
+        "short_wins": 0
+      }
+    ],
+    "signals": 12,
+    "wins": 0,
+    "losses": 12,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 0,
+    "short_sigs": 7,
+    "short_wins": 0,
+    "cum_win_rate": 0.0,
+    "runs_count": 1
+  },
+  "CFX": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 12,
+        "wins": 0,
+        "losses": 11,
+        "timeouts": 1,
+        "win_rate": 0.0,
+        "avg_r": -0.85,
+        "long_sigs": 4,
+        "long_wins": 0,
+        "short_sigs": 8,
+        "short_wins": 0
+      }
+    ],
+    "signals": 12,
+    "wins": 0,
+    "losses": 11,
+    "timeouts": 1,
+    "long_sigs": 4,
+    "long_wins": 0,
+    "short_sigs": 8,
+    "short_wins": 0,
+    "cum_win_rate": 0.0,
+    "runs_count": 1
+  },
+  "LDO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 1,
+        "wins": 1,
+        "losses": 0,
+        "timeouts": 0,
+        "win_rate": 100.0,
+        "avg_r": 1.61,
+        "long_sigs": 1,
+        "long_wins": 1,
+        "short_sigs": 0,
+        "short_wins": 0
+      }
+    ],
+    "signals": 1,
+    "wins": 1,
+    "losses": 0,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 1,
+    "short_sigs": 0,
+    "short_wins": 0,
+    "cum_win_rate": 100.0,
+    "runs_count": 1
+  },
+  "FF": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 6,
+        "wins": 5,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 83.3,
+        "avg_r": 0.7,
+        "long_sigs": 4,
+        "long_wins": 3,
+        "short_sigs": 2,
+        "short_wins": 2
+      }
+    ],
+    "signals": 6,
+    "wins": 5,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 3,
+    "short_sigs": 2,
+    "short_wins": 2,
+    "cum_win_rate": 83.3,
+    "runs_count": 1
+  },
+  "KAIA": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 5,
+        "wins": 0,
+        "losses": 5,
+        "timeouts": 0,
+        "win_rate": 0.0,
+        "avg_r": -0.94,
+        "long_sigs": 3,
+        "long_wins": 0,
+        "short_sigs": 2,
+        "short_wins": 0
+      }
+    ],
+    "signals": 5,
+    "wins": 0,
+    "losses": 5,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 0,
+    "short_sigs": 2,
+    "short_wins": 0,
+    "cum_win_rate": 0.0,
+    "runs_count": 1
+  },
+  "BILL": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 11,
+        "wins": 7,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 63.6,
+        "avg_r": 0.82,
+        "long_sigs": 6,
+        "long_wins": 4,
+        "short_sigs": 5,
+        "short_wins": 3
+      }
+    ],
+    "signals": 11,
+    "wins": 7,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 6,
+    "long_wins": 4,
+    "short_sigs": 5,
+    "short_wins": 3,
+    "cum_win_rate": 63.6,
+    "runs_count": 1
+  },
+  "DOT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 19,
+        "wins": 4,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 21.1,
+        "avg_r": -0.45,
+        "long_sigs": 9,
+        "long_wins": 3,
+        "short_sigs": 10,
+        "short_wins": 1
+      }
+    ],
+    "signals": 19,
+    "wins": 4,
+    "losses": 15,
+    "timeouts": 0,
+    "long_sigs": 9,
+    "long_wins": 3,
+    "short_sigs": 10,
+    "short_wins": 1,
+    "cum_win_rate": 21.1,
+    "runs_count": 1
+  },
+  "BEAT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 22,
+        "wins": 8,
+        "losses": 14,
+        "timeouts": 0,
+        "win_rate": 36.4,
+        "avg_r": 0.64,
+        "long_sigs": 10,
+        "long_wins": 4,
+        "short_sigs": 12,
+        "short_wins": 4
+      }
+    ],
+    "signals": 22,
+    "wins": 8,
+    "losses": 14,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 4,
+    "short_sigs": 12,
+    "short_wins": 4,
+    "cum_win_rate": 36.4,
+    "runs_count": 1
+  },
+  "SKY": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 10,
+        "wins": 3,
+        "losses": 7,
+        "timeouts": 0,
+        "win_rate": 30.0,
+        "avg_r": -0.14,
+        "long_sigs": 7,
+        "long_wins": 3,
+        "short_sigs": 3,
+        "short_wins": 0
+      }
+    ],
+    "signals": 10,
+    "wins": 3,
+    "losses": 7,
+    "timeouts": 0,
+    "long_sigs": 7,
+    "long_wins": 3,
+    "short_sigs": 3,
+    "short_wins": 0,
+    "cum_win_rate": 30.0,
+    "runs_count": 1
+  },
+  "ICP": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 23,
+        "wins": 9,
+        "losses": 14,
+        "timeouts": 0,
+        "win_rate": 39.1,
+        "avg_r": -0.13,
+        "long_sigs": 12,
+        "long_wins": 4,
+        "short_sigs": 11,
+        "short_wins": 5
+      }
+    ],
+    "signals": 23,
+    "wins": 9,
+    "losses": 14,
+    "timeouts": 0,
+    "long_sigs": 12,
+    "long_wins": 4,
+    "short_sigs": 11,
+    "short_wins": 5,
+    "cum_win_rate": 39.1,
+    "runs_count": 1
+  },
+  "MORPHO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 25,
+        "wins": 6,
+        "losses": 19,
+        "timeouts": 0,
+        "win_rate": 24.0,
+        "avg_r": -0.24,
+        "long_sigs": 16,
+        "long_wins": 3,
+        "short_sigs": 9,
+        "short_wins": 3
+      }
+    ],
+    "signals": 25,
+    "wins": 6,
+    "losses": 19,
+    "timeouts": 0,
+    "long_sigs": 16,
+    "long_wins": 3,
+    "short_sigs": 9,
+    "short_wins": 3,
+    "cum_win_rate": 24.0,
+    "runs_count": 1
+  },
+  "QNT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 19,
+        "wins": 6,
+        "losses": 13,
+        "timeouts": 0,
+        "win_rate": 31.6,
+        "avg_r": -0.14,
+        "long_sigs": 12,
+        "long_wins": 6,
+        "short_sigs": 7,
+        "short_wins": 0
+      }
+    ],
+    "signals": 19,
+    "wins": 6,
+    "losses": 13,
+    "timeouts": 0,
+    "long_sigs": 12,
+    "long_wins": 6,
+    "short_sigs": 7,
+    "short_wins": 0,
+    "cum_win_rate": 31.6,
+    "runs_count": 1
+  },
+  "ATOM": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 14,
+        "wins": 5,
+        "losses": 9,
+        "timeouts": 0,
+        "win_rate": 35.7,
+        "avg_r": -0.09,
+        "long_sigs": 7,
+        "long_wins": 2,
+        "short_sigs": 7,
+        "short_wins": 3
+      }
+    ],
+    "signals": 14,
+    "wins": 5,
+    "losses": 9,
+    "timeouts": 0,
+    "long_sigs": 7,
+    "long_wins": 2,
+    "short_sigs": 7,
+    "short_wins": 3,
+    "cum_win_rate": 35.7,
+    "runs_count": 1
+  },
+  "KAS": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 16,
+        "wins": 5,
+        "losses": 11,
+        "timeouts": 0,
+        "win_rate": 31.2,
+        "avg_r": -0.09,
+        "long_sigs": 8,
+        "long_wins": 4,
+        "short_sigs": 8,
+        "short_wins": 1
+      }
+    ],
+    "signals": 16,
+    "wins": 5,
+    "losses": 11,
+    "timeouts": 0,
+    "long_sigs": 8,
+    "long_wins": 4,
+    "short_sigs": 8,
+    "short_wins": 1,
+    "cum_win_rate": 31.2,
+    "runs_count": 1
+  },
+  "RENDER": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 2,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 50.0,
+        "avg_r": 0.81,
+        "long_sigs": 1,
+        "long_wins": 0,
+        "short_sigs": 1,
+        "short_wins": 1
+      }
+    ],
+    "signals": 2,
+    "wins": 1,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 0,
+    "short_sigs": 1,
+    "short_wins": 1,
+    "cum_win_rate": 50.0,
+    "runs_count": 1
+  },
+  "INJ": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 3,
+        "wins": 1,
+        "losses": 2,
+        "timeouts": 0,
+        "win_rate": 33.3,
+        "avg_r": 0.75,
+        "long_sigs": 1,
+        "long_wins": 0,
+        "short_sigs": 2,
+        "short_wins": 1
+      }
+    ],
+    "signals": 3,
+    "wins": 1,
+    "losses": 2,
+    "timeouts": 0,
+    "long_sigs": 1,
+    "long_wins": 0,
+    "short_sigs": 2,
+    "short_wins": 1,
+    "cum_win_rate": 33.3,
+    "runs_count": 1
+  },
+  "PUMP": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 0,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 0.0,
+        "avg_r": -0.92,
+        "long_sigs": 3,
+        "long_wins": 0,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 4,
+    "wins": 0,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 0,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 0.0,
+    "runs_count": 1
+  },
+  "NIGHT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 9,
+        "wins": 2,
+        "losses": 7,
+        "timeouts": 0,
+        "win_rate": 22.2,
+        "avg_r": -0.05,
+        "long_sigs": 5,
+        "long_wins": 1,
+        "short_sigs": 4,
+        "short_wins": 1
+      }
+    ],
+    "signals": 9,
+    "wins": 2,
+    "losses": 7,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 1,
+    "short_sigs": 4,
+    "short_wins": 1,
+    "cum_win_rate": 22.2,
+    "runs_count": 1
+  },
+  "JUP": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 15,
+        "wins": 7,
+        "losses": 8,
+        "timeouts": 0,
+        "win_rate": 46.7,
+        "avg_r": 0.54,
+        "long_sigs": 6,
+        "long_wins": 4,
+        "short_sigs": 9,
+        "short_wins": 3
+      }
+    ],
+    "signals": 15,
+    "wins": 7,
+    "losses": 8,
+    "timeouts": 0,
+    "long_sigs": 6,
+    "long_wins": 4,
+    "short_sigs": 9,
+    "short_wins": 3,
+    "cum_win_rate": 46.7,
+    "runs_count": 1
+  },
+  "ARB": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 10,
+        "wins": 3,
+        "losses": 7,
+        "timeouts": 0,
+        "win_rate": 30.0,
+        "avg_r": -0.12,
+        "long_sigs": 4,
+        "long_wins": 2,
+        "short_sigs": 6,
+        "short_wins": 1
+      }
+    ],
+    "signals": 10,
+    "wins": 3,
+    "losses": 7,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 2,
+    "short_sigs": 6,
+    "short_wins": 1,
+    "cum_win_rate": 30.0,
+    "runs_count": 1
+  },
+  "FET": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 10,
+        "losses": 11,
+        "timeouts": 0,
+        "win_rate": 47.6,
+        "avg_r": 0.93,
+        "long_sigs": 13,
+        "long_wins": 5,
+        "short_sigs": 8,
+        "short_wins": 5
+      }
+    ],
+    "signals": 21,
+    "wins": 10,
+    "losses": 11,
+    "timeouts": 0,
+    "long_sigs": 13,
+    "long_wins": 5,
+    "short_sigs": 8,
+    "short_wins": 5,
+    "cum_win_rate": 47.6,
+    "runs_count": 1
+  },
+  "DASH": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 29,
+        "wins": 8,
+        "losses": 21,
+        "timeouts": 0,
+        "win_rate": 27.6,
+        "avg_r": -0.19,
+        "long_sigs": 15,
+        "long_wins": 4,
+        "short_sigs": 14,
+        "short_wins": 4
+      }
+    ],
+    "signals": 29,
+    "wins": 8,
+    "losses": 21,
+    "timeouts": 0,
+    "long_sigs": 15,
+    "long_wins": 4,
+    "short_sigs": 14,
+    "short_wins": 4,
+    "cum_win_rate": 27.6,
+    "runs_count": 1
+  },
+  "KITE": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 1,
+        "losses": 3,
+        "timeouts": 0,
+        "win_rate": 25.0,
+        "avg_r": 0.56,
+        "long_sigs": 3,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 4,
+    "wins": 1,
+    "losses": 3,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 25.0,
+    "runs_count": 1
+  },
+  "PENGU": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 14,
+        "wins": 6,
+        "losses": 8,
+        "timeouts": 0,
+        "win_rate": 42.9,
+        "avg_r": 0.59,
+        "long_sigs": 9,
+        "long_wins": 5,
+        "short_sigs": 5,
+        "short_wins": 1
+      }
+    ],
+    "signals": 14,
+    "wins": 6,
+    "losses": 8,
+    "timeouts": 0,
+    "long_sigs": 9,
+    "long_wins": 5,
+    "short_sigs": 5,
+    "short_wins": 1,
+    "cum_win_rate": 42.9,
+    "runs_count": 1
+  },
+  "LIT": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 10,
+        "losses": 11,
+        "timeouts": 0,
+        "win_rate": 47.6,
+        "avg_r": 0.41,
+        "long_sigs": 10,
+        "long_wins": 7,
+        "short_sigs": 11,
+        "short_wins": 3
+      }
+    ],
+    "signals": 21,
+    "wins": 10,
+    "losses": 11,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 7,
+    "short_sigs": 11,
+    "short_wins": 3,
+    "cum_win_rate": 47.6,
+    "runs_count": 1
+  },
+  "TRUMP": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 9,
+        "losses": 12,
+        "timeouts": 0,
+        "win_rate": 42.9,
+        "avg_r": 0.36,
+        "long_sigs": 10,
+        "long_wins": 3,
+        "short_sigs": 11,
+        "short_wins": 6
+      }
+    ],
+    "signals": 21,
+    "wins": 9,
+    "losses": 12,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 3,
+    "short_sigs": 11,
+    "short_wins": 6,
+    "cum_win_rate": 42.9,
+    "runs_count": 1
+  },
+  "GWEI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 4,
+        "losses": 17,
+        "timeouts": 0,
+        "win_rate": 19.0,
+        "avg_r": -0.3,
+        "long_sigs": 11,
+        "long_wins": 2,
+        "short_sigs": 10,
+        "short_wins": 2
+      }
+    ],
+    "signals": 21,
+    "wins": 4,
+    "losses": 17,
+    "timeouts": 0,
+    "long_sigs": 11,
+    "long_wins": 2,
+    "short_sigs": 10,
+    "short_wins": 2,
+    "cum_win_rate": 19.0,
+    "runs_count": 1
+  },
+  "SUN": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 1,
+        "losses": 3,
+        "timeouts": 0,
+        "win_rate": 25.0,
+        "avg_r": -0.38,
+        "long_sigs": 3,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 4,
+    "wins": 1,
+    "losses": 3,
+    "timeouts": 0,
+    "long_sigs": 3,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 25.0,
+    "runs_count": 1
+  },
+  "STX": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 16,
+        "wins": 10,
+        "losses": 5,
+        "timeouts": 1,
+        "win_rate": 62.5,
+        "avg_r": 0.91,
+        "long_sigs": 6,
+        "long_wins": 4,
+        "short_sigs": 10,
+        "short_wins": 6
+      }
+    ],
+    "signals": 16,
+    "wins": 10,
+    "losses": 5,
+    "timeouts": 1,
+    "long_sigs": 6,
+    "long_wins": 4,
+    "short_sigs": 10,
+    "short_wins": 6,
+    "cum_win_rate": 66.7,
+    "runs_count": 1
+  },
+  "SEI": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 21,
+        "wins": 9,
+        "losses": 11,
+        "timeouts": 1,
+        "win_rate": 42.9,
+        "avg_r": 0.1,
+        "long_sigs": 11,
+        "long_wins": 7,
+        "short_sigs": 10,
+        "short_wins": 2
+      }
+    ],
+    "signals": 21,
+    "wins": 9,
+    "losses": 11,
+    "timeouts": 1,
+    "long_sigs": 11,
+    "long_wins": 7,
+    "short_sigs": 10,
+    "short_wins": 2,
+    "cum_win_rate": 45.0,
+    "runs_count": 1
+  },
+  "H": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 26,
+        "wins": 8,
+        "losses": 18,
+        "timeouts": 0,
+        "win_rate": 30.8,
+        "avg_r": 0.0,
+        "long_sigs": 16,
+        "long_wins": 5,
+        "short_sigs": 10,
+        "short_wins": 3
+      }
+    ],
+    "signals": 26,
+    "wins": 8,
+    "losses": 18,
+    "timeouts": 0,
+    "long_sigs": 16,
+    "long_wins": 5,
+    "short_sigs": 10,
+    "short_wins": 3,
+    "cum_win_rate": 30.8,
+    "runs_count": 1
+  },
+  "AERO": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 24,
+        "wins": 9,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 37.5,
+        "avg_r": 0.03,
+        "long_sigs": 14,
+        "long_wins": 5,
+        "short_sigs": 10,
+        "short_wins": 4
+      }
+    ],
+    "signals": 24,
+    "wins": 9,
+    "losses": 15,
+    "timeouts": 0,
+    "long_sigs": 14,
+    "long_wins": 5,
+    "short_sigs": 10,
+    "short_wins": 4,
+    "cum_win_rate": 37.5,
+    "runs_count": 1
+  },
+  "CRV": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 30,
+        "wins": 8,
+        "losses": 21,
+        "timeouts": 1,
+        "win_rate": 26.7,
+        "avg_r": -0.21,
+        "long_sigs": 13,
+        "long_wins": 3,
+        "short_sigs": 17,
+        "short_wins": 5
+      }
+    ],
+    "signals": 30,
+    "wins": 8,
+    "losses": 21,
+    "timeouts": 1,
+    "long_sigs": 13,
+    "long_wins": 3,
+    "short_sigs": 17,
+    "short_wins": 5,
+    "cum_win_rate": 27.6,
+    "runs_count": 1
+  },
+  "CHZ": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 27,
+        "wins": 10,
+        "losses": 17,
+        "timeouts": 0,
+        "win_rate": 37.0,
+        "avg_r": 0.2,
+        "long_sigs": 10,
+        "long_wins": 2,
+        "short_sigs": 17,
+        "short_wins": 8
+      }
+    ],
+    "signals": 27,
+    "wins": 10,
+    "losses": 17,
+    "timeouts": 0,
+    "long_sigs": 10,
+    "long_wins": 2,
+    "short_sigs": 17,
+    "short_wins": 8,
+    "cum_win_rate": 37.0,
+    "runs_count": 1
+  },
+  "SPX": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 6,
+        "wins": 1,
+        "losses": 5,
+        "timeouts": 0,
+        "win_rate": 16.7,
+        "avg_r": -0.47,
+        "long_sigs": 6,
+        "long_wins": 1,
+        "short_sigs": 0,
+        "short_wins": 0
+      }
+    ],
+    "signals": 6,
+    "wins": 1,
+    "losses": 5,
+    "timeouts": 0,
+    "long_sigs": 6,
+    "long_wins": 1,
+    "short_sigs": 0,
+    "short_wins": 0,
+    "cum_win_rate": 16.7,
+    "runs_count": 1
+  },
+  "B": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 10,
+        "wins": 3,
+        "losses": 7,
+        "timeouts": 0,
+        "win_rate": 30.0,
+        "avg_r": -0.03,
+        "long_sigs": 5,
+        "long_wins": 2,
+        "short_sigs": 5,
+        "short_wins": 1
+      }
+    ],
+    "signals": 10,
+    "wins": 3,
+    "losses": 7,
+    "timeouts": 0,
+    "long_sigs": 5,
+    "long_wins": 2,
+    "short_sigs": 5,
+    "short_wins": 1,
+    "cum_win_rate": 30.0,
+    "runs_count": 1
+  },
+  "CHR": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 2,
+        "wins": 2,
+        "losses": 0,
+        "timeouts": 0,
+        "win_rate": 100.0,
+        "avg_r": 1.12,
+        "long_sigs": 0,
+        "long_wins": 0,
+        "short_sigs": 2,
+        "short_wins": 2
+      }
+    ],
+    "signals": 2,
+    "wins": 2,
+    "losses": 0,
+    "timeouts": 0,
+    "long_sigs": 0,
+    "long_wins": 0,
+    "short_sigs": 2,
+    "short_wins": 2,
+    "cum_win_rate": 100.0,
+    "runs_count": 1
+  },
+  "TST": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 3,
+        "wins": 2,
+        "losses": 1,
+        "timeouts": 0,
+        "win_rate": 66.7,
+        "avg_r": 0.88,
+        "long_sigs": 2,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 1
+      }
+    ],
+    "signals": 3,
+    "wins": 2,
+    "losses": 1,
+    "timeouts": 0,
+    "long_sigs": 2,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 1,
+    "cum_win_rate": 66.7,
+    "runs_count": 1
+  },
+  "LAYER": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 4,
+        "wins": 2,
+        "losses": 1,
+        "timeouts": 1,
+        "win_rate": 50.0,
+        "avg_r": 0.47,
+        "long_sigs": 1,
+        "long_wins": 0,
+        "short_sigs": 3,
+        "short_wins": 2
+      }
+    ],
+    "signals": 4,
+    "wins": 2,
+    "losses": 1,
+    "timeouts": 1,
+    "long_sigs": 1,
+    "long_wins": 0,
+    "short_sigs": 3,
+    "short_wins": 2,
+    "cum_win_rate": 66.7,
+    "runs_count": 1
+  },
+  "LA": {
+    "runs": [
+      {
+        "date": "2026-06-10",
+        "days": 90,
+        "signals": 5,
+        "wins": 1,
+        "losses": 4,
+        "timeouts": 0,
+        "win_rate": 20.0,
+        "avg_r": -0.54,
+        "long_sigs": 4,
+        "long_wins": 1,
+        "short_sigs": 1,
+        "short_wins": 0
+      }
+    ],
+    "signals": 5,
+    "wins": 1,
+    "losses": 4,
+    "timeouts": 0,
+    "long_sigs": 4,
+    "long_wins": 1,
+    "short_sigs": 1,
+    "short_wins": 0,
+    "cum_win_rate": 20.0,
+    "runs_count": 1
+  }
+}
