@@ -355,6 +355,131 @@ def _detect_continuous_divergence(closes: list, highs: list, lows: list,
 
     return out
 
+
+def _calc_macd(closes: list, fast: int = 12, slow: int = 26, signal: int = 9) -> dict:
+    """
+    MACD — Sam 把它當動能背書（輔助確認，不是決策依據，與RSI同層）。
+    用法：histogram 翻正/翻負（金叉/死叉）、是否在零軸上方（多頭區/空頭區）。
+    """
+    out = {"macd": 0, "signal": 0, "hist": 0, "cross": "none", "above_zero": False}
+    if len(closes) < slow + signal + 1:
+        return out
+    ema_f = _calc_ema(closes, fast)
+    ema_s = _calc_ema(closes, slow)
+    macd_line = [ema_f[i] - ema_s[i] for i in range(len(closes))]
+    sig_line  = _calc_ema(macd_line, signal)
+    hist = [macd_line[i] - sig_line[i] for i in range(len(closes))]
+    out["macd"]       = round(macd_line[-1], 8)
+    out["signal"]     = round(sig_line[-1], 8)
+    out["hist"]       = round(hist[-1], 8)
+    out["above_zero"] = macd_line[-1] > 0
+    if len(hist) >= 2:
+        if hist[-2] <= 0 < hist[-1]:
+            out["cross"] = "bull"   # 金叉
+        elif hist[-2] >= 0 > hist[-1]:
+            out["cross"] = "bear"   # 死叉
+    return out
+
+
+def _calc_fib(highs: list, lows: list, closes: list, lookback: int = 60) -> dict:
+    """
+    費波那契回調（Sam 8.7% 高頻工具）：
+      回調到 0.618~0.786『黃金口袋』量縮守穩 → 右側進場區
+      延伸 1.618 / 2.618 為目標。從近段主擺動（最高高點↔最低低點）量測。
+    """
+    out = {"in_golden_zone": False, "nearest": "", "swing_dir": "", "golden_lo": 0, "golden_hi": 0}
+    n = len(closes)
+    if n < 20:
+        return out
+    lb = min(lookback, n)
+    seg_h = highs[-lb:]; seg_l = lows[-lb:]
+    hi = max(seg_h); lo = min(seg_l)
+    if hi <= lo:
+        return out
+    price = closes[-1]
+    up = seg_l.index(lo) < seg_h.index(hi)   # 低點先出現=上升段
+    diff = hi - lo
+    levels = ({f: hi - diff * f for f in (0.382, 0.5, 0.618, 0.786)} if up
+              else {f: lo + diff * f for f in (0.382, 0.5, 0.618, 0.786)})
+    out["swing_dir"] = "up" if up else "down"
+    g_lo = min(levels[0.618], levels[0.786]); g_hi = max(levels[0.618], levels[0.786])
+    out["golden_lo"] = round(g_lo, 8); out["golden_hi"] = round(g_hi, 8)
+    out["in_golden_zone"] = g_lo <= price <= g_hi
+    nl = min(levels.items(), key=lambda kv: abs(kv[1] - price))
+    out["nearest"] = f"{nl[0]}={nl[1]:.6g}"
+    return out
+
+
+def _detect_cup_handle(highs: list, lows: list, closes: list) -> dict:
+    """杯柄（564次）：圓底兩側杯緣等高，右側回後接近杯緣形成柄。目標=杯深等幅上投。"""
+    out = {"detected": False, "pattern": "", "rim": 0, "target": 0, "breakout": False}
+    if len(closes) < 40:
+        return out
+    seg = closes[-40:]
+    left, mid, right = seg[:8], seg[8:32], seg[32:]
+    left_rim = max(left); cup_bottom = min(mid); right_rim = max(right); now = seg[-1]
+    depth = left_rim - cup_bottom
+    if depth <= 0:
+        return out
+    if (cup_bottom < left_rim * 0.97 and abs(right_rim - left_rim) / left_rim < 0.05
+            and cup_bottom < now):
+        out["detected"] = True
+        out["pattern"]  = "cup_handle"
+        out["rim"]      = round(left_rim, 8)
+        out["target"]   = round(left_rim + depth, 8)
+        out["breakout"] = now > left_rim          # 突破杯緣=右側確認
+    return out
+
+
+def _detect_channel(highs: list, lows: list, closes: list, lookback: int = 40) -> dict:
+    """通道（721次）：高低點回歸斜率同向且平行。回報方向+價格在通道上/中/下緣。"""
+    out = {"detected": False, "type": "", "position": ""}
+    if len(closes) < lookback:
+        return out
+    H = highs[-lookback:]; L = lows[-lookback:]; n = lookback
+    xs = list(range(n)); mx = sum(xs) / n
+    dx = sum((x - mx) ** 2 for x in xs) or 1e-9
+
+    def slope(ys):
+        my = sum(ys) / n
+        return sum((xs[i] - mx) * (ys[i] - my) for i in range(n)) / dx
+
+    sh, sl_ = slope(H), slope(L)
+    if sh * sl_ > 0 and abs(sh - sl_) / (abs(sh) + 1e-9) < 0.6:
+        out["detected"] = True
+        out["type"] = "up" if sh > 0 else "down"
+        upper, lower, price = H[-1], L[-1], closes[-1]
+        rng = upper - lower
+        if rng > 0:
+            pos = (price - lower) / rng
+            out["position"] = "upper" if pos > 0.66 else ("lower" if pos < 0.34 else "mid")
+    return out
+
+
+def _detect_retest_hold(highs: list, lows: list, closes: list, volumes: list,
+                        lookback: int = 30) -> dict:
+    """
+    右側進場核心訊號 —— Sam：「突破後縮量回測守穩才進，不追突破K棒」。
+      多：近期突破前段壓力，回踩該位上方守住，且回踩量縮 → 真突破確認。
+      空：近期跌破前段支撐，反抽該位下方守住，且反抽量縮 → 真跌破確認。
+    這是 Sam 74% 等待確認操作的程式化定義。
+    """
+    out = {"long": False, "short": False, "level": 0}
+    n = len(closes)
+    if n < lookback + 5:
+        return out
+    res = max(highs[-lookback:-5]); sup = min(lows[-lookback:-5])
+    recent_high = max(highs[-5:]); recent_low = min(lows[-5:])
+    price = closes[-1]
+    vol_now = volumes[-1]
+    vol_avg = sum(volumes[-lookback:-1]) / (lookback - 1) if lookback > 1 else vol_now
+    shrink = vol_now < vol_avg * 0.9
+    if recent_high > res and price > res and (price - res) / res < 0.015 and shrink:
+        out["long"] = True;  out["level"] = round(res, 8)
+    if recent_low < sup and price < sup and (sup - price) / sup < 0.015 and shrink:
+        out["short"] = True; out["level"] = round(sup, 8)
+    return out
+
 # ─────────────────────────────────────────────
 # 原主形態識別引擎
 # ─────────────────────────────────────────────
@@ -902,6 +1027,19 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
         # 連續背離（Sam 吸籌/出貨完成訊號）— 用 1H 多個擺動點，比快照背離強得多
         cont_div = _detect_continuous_divergence(d1h["closes"], d1h["highs"], d1h["lows"])
 
+        # MACD 動能背書（1H，輔助確認層，與RSI同級不作主決策）
+        macd_1h = _calc_macd(d1h["closes"])
+
+        # 費波那契黃金回調區（右側進場區判斷）
+        fib_1h = _calc_fib(d1h["highs"], d1h["lows"], d1h["closes"], lookback=60)
+
+        # 補齊形態學：杯柄 / 通道（1H）
+        pattern_cup_1h     = _detect_cup_handle(d1h["highs"], d1h["lows"], d1h["closes"])
+        pattern_channel_1h = _detect_channel(d1h["highs"], d1h["lows"], d1h["closes"], lookback=40)
+
+        # 右側進場確認：突破後縮量回測守穩（Sam核心，不追突破K棒）
+        retest_1h = _detect_retest_hold(d1h["highs"], d1h["lows"], d1h["closes"], d1h["volumes"])
+
         # 市場結構
         structure_15m = _find_structure(d15m["highs"], d15m["lows"], lookback=20)
         structure_1h  = _find_structure(d1h["highs"],  d1h["lows"],  lookback=24)
@@ -990,6 +1128,18 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
             "rsi_bear_div_continuous":  cont_div["bear"],          # 連續頂背離→主力出貨
             "div_bull_strength":        cont_div["bull_strength"],
             "div_bear_strength":        cont_div["bear_strength"],
+            # MACD 動能背書（輔助層）
+            "macd_hist":        macd_1h["hist"],
+            "macd_cross":       macd_1h["cross"],        # bull金叉/bear死叉/none
+            "macd_above_zero":  macd_1h["above_zero"],
+            # 費波那契
+            "fib_in_golden_zone": fib_1h["in_golden_zone"],
+            "fib_nearest":        fib_1h["nearest"],
+            "fib_swing_dir":      fib_1h["swing_dir"],
+            # 右側進場確認（突破後縮量回測守穩）
+            "retest_hold_long":  retest_1h["long"],
+            "retest_hold_short": retest_1h["short"],
+            "retest_level":      retest_1h["level"],
             # 市場結構（流動性區域）
             "swing_high_1h":    structure_1h["swing_high"],
             "swing_low_1h":     structure_1h["swing_low"],
@@ -1005,6 +1155,8 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
             "pattern_triangle": pattern_triangle,
             "pattern_hs":       pattern_hs,
             "pattern_wm":       pattern_wm,
+            "pattern_cup":      pattern_cup_1h,
+            "pattern_channel":  pattern_channel_1h,
             # 15m 時框
             "rsi_15m":              rsi_15m,
             "vol_ratio_15m":        vol_ratio_15m,
@@ -1033,32 +1185,50 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
 # ─────────────────────────────────────────────────────────────────────
 _BTC_REGIME_CACHE: dict = {"regime": "neutral", "btc_price": 0, "ma200": 0, "ma99": 0,
                            "updated_at": 0, "btc_dominance": 0, "dom_trend": "flat",
-                           "alt_headwind": False}
+                           "others_d": 0, "others_trend": "flat", "alt_headwind": False}
 
 
 async def _fetch_btc_dominance() -> dict:
     """
-    宏觀濾鏡 — BTC.D（比特幣主導率）。Sam 跨資產框架：
-      BTC.D 上升 → 資金流向 BTC，山寨幣承壓（做多山寨要提高門檻）
-      BTC.D 下降 → 資金外溢山寨，山寨易漲（做多山寨順風）
-    用前一次 cache 的數值比對方向，門檻 ±0.3 個百分點。
+    宏觀濾鏡 — Sam 跨資產框架（用 BTC.D + OTHERS.D 雙指標判山寨強弱）：
+      BTC.D = 比特幣主導率；上升 → 資金回流BTC，山寨承壓。
+      OTHERS.D = 山寨指數（總市值扣掉前10大 ≈ TradingView OTHERS.D）；
+                 上升 → 資金外溢進中小山寨（山寨季氛圍，做多山寨順風）
+                 下降 → 山寨失血（做多山寨逆風）。
+    判定 alt_headwind（山寨做多逆風）= BTC.D上升 或 OTHERS.D下降。
+    用前一次 cache 數值比對方向，門檻 ±0.3 個百分點。
     """
-    prev_dom = _BTC_REGIME_CACHE.get("btc_dominance", 0)
+    prev_btc    = _BTC_REGIME_CACHE.get("btc_dominance", 0)
+    prev_others = _BTC_REGIME_CACHE.get("others_d", 0)
     try:
-        async with httpx.AsyncClient(timeout=8) as cl:
-            r = await cl.get("https://api.coingecko.com/api/v3/global")
-            if r.status_code != 200:
-                return {"btc_dominance": prev_dom, "dom_trend": "flat", "alt_headwind": False}
-            dom = float(r.json()["data"]["market_cap_percentage"]["btc"])
-        if prev_dom and abs(dom - prev_dom) >= 0.3:
-            trend = "rising" if dom > prev_dom else "falling"
-        else:
-            trend = "flat"
-        return {"btc_dominance": round(dom, 2), "dom_trend": trend,
-                "alt_headwind": trend == "rising"}
+        mcp = None
+        for attempt in range(3):                      # CoinGecko 免費版偶爾 429，重試3次
+            async with httpx.AsyncClient(timeout=8) as cl:
+                r = await cl.get("https://api.coingecko.com/api/v3/global")
+            if r.status_code == 200:
+                mcp = r.json()["data"]["market_cap_percentage"]
+                break
+            await asyncio.sleep(2)
+        if not mcp:
+            raise ValueError("global 連續取得失敗")
+        btc_d    = float(mcp.get("btc", 0))
+        others_d = round(100 - sum(mcp.values()), 2)   # 扣掉前10大 = OTHERS.D 代理
+
+        def _trend(cur, prev):
+            if prev and abs(cur - prev) >= 0.3:
+                return "rising" if cur > prev else "falling"
+            return "flat"
+
+        dom_trend    = _trend(btc_d, prev_btc)
+        others_trend = _trend(others_d, prev_others)
+        alt_headwind = (dom_trend == "rising") or (others_trend == "falling")
+        return {"btc_dominance": round(btc_d, 2), "dom_trend": dom_trend,
+                "others_d": others_d, "others_trend": others_trend,
+                "alt_headwind": alt_headwind}
     except Exception as e:
         log.debug(f"[BTC_DOM] 抓取失敗: {e}")
-        return {"btc_dominance": prev_dom, "dom_trend": "flat", "alt_headwind": False}
+        return {"btc_dominance": prev_btc, "dom_trend": "flat",
+                "others_d": prev_others, "others_trend": "flat", "alt_headwind": False}
 
 async def _fetch_btc_regime() -> dict:
     """
@@ -1112,10 +1282,13 @@ async def _fetch_btc_regime() -> dict:
                 "updated_at": now,
                 "btc_dominance": dom_info["btc_dominance"],
                 "dom_trend":     dom_info["dom_trend"],
+                "others_d":      dom_info["others_d"],
+                "others_trend":  dom_info["others_trend"],
                 "alt_headwind":  dom_info["alt_headwind"],
             }
-            log.info(f"[BTC_REGIME] {note} | BTC.D={dom_info['btc_dominance']}% "
-                     f"({dom_info['dom_trend']}{'，山寨承壓' if dom_info['alt_headwind'] else ''})")
+            log.info(f"[BTC_REGIME] {note} | BTC.D={dom_info['btc_dominance']}%({dom_info['dom_trend']}) "
+                     f"OTHERS.D={dom_info['others_d']}%({dom_info['others_trend']})"
+                     f"{' ⚠️山寨做多逆風' if dom_info['alt_headwind'] else ''}")
     except Exception as e:
         log.warning(f"[BTC_REGIME] 抓取失敗: {e}")
 
@@ -1237,7 +1410,7 @@ def _should_ask_sam(market: dict, btc_regime: str = "neutral") -> tuple[bool, st
     # ── ⑤ 放量（≥1.5x）+ 有型態 → 有效突破條件 ───────────────────────
     has_pattern = any(
         market.get(k, {}).get("detected")
-        for k in ["pattern_abcd","pattern_triangle","pattern_hs","pattern_wm",
+        for k in ["pattern_abcd","pattern_triangle","pattern_hs","pattern_wm","pattern_cup",
                   "pattern_abcd_15m","pattern_triangle_15m","pattern_hs_15m","pattern_wm_15m"]
     )
     vol_surge = vol_ratio >= 1.5 or vol_ratio_15m >= 1.5
@@ -1562,7 +1735,7 @@ async def _sam_decide(market: dict) -> dict:
 1H 近低（多頭止損）={market.get('swing_low_1h')}（距今{market.get('dist_to_swing_low_pct',0):+.2f}%）
 日線趨勢：{market.get('daily_trend')}  1H趨勢：{market.get('trend_1h')}
 BTC大方向：{_BTC_REGIME_CACHE.get('regime','unknown')}（BTC={_BTC_REGIME_CACHE.get('btc_price',0):,.0f} / MA200={_BTC_REGIME_CACHE.get('ma200',0):,.0f}）
-宏觀濾鏡 BTC.D：{_BTC_REGIME_CACHE.get('btc_dominance',0)}%（{_BTC_REGIME_CACHE.get('dom_trend','flat')}）{'　⚠️ BTC.D上升中，資金回流BTC，山寨做多要提高門檻' if _BTC_REGIME_CACHE.get('alt_headwind') else ''}
+宏觀濾鏡：BTC.D={_BTC_REGIME_CACHE.get('btc_dominance',0)}%（{_BTC_REGIME_CACHE.get('dom_trend','flat')}）  OTHERS.D山寨指數={_BTC_REGIME_CACHE.get('others_d',0)}%（{_BTC_REGIME_CACHE.get('others_trend','flat')}）{'　⚠️ 山寨做多逆風（BTC.D升或OTHERS.D跌），山寨多單提高門檻' if _BTC_REGIME_CACHE.get('alt_headwind') else '　山寨資金面中性/順風'}
 {'⚡ BTC牛市環境 — 跟多為主，短線空需假突破+背離雙重確認' if _BTC_REGIME_CACHE.get('regime')=='bull' else ''}
 {'⚠️ BTC熊市環境 — 跟空為主，日內短多只在底背離+量縮末端' if _BTC_REGIME_CACHE.get('regime')=='bear' else ''}
 {'🔄 BTC中性整理 — 多空均需二次確認，等BTC方向選擇' if _BTC_REGIME_CACHE.get('regime')=='neutral' else ''}
@@ -1584,11 +1757,25 @@ ATR：{market.get('atr_pct',0)*100:.2f}%  RSI 1H={market.get('rsi_1h')} / 4H={ma
 【假突破偵測】
 上方假突破：{market.get('fake_breakout_up')}  下方假突破：{market.get('fake_breakout_down')}
 
+【MACD 動能背書（輔助層，與RSI同級，不單獨決策）】
+MACD柱={market.get('macd_hist')}  {'🟢金叉' if market.get('macd_cross')=='bull' else ('🔴死叉' if market.get('macd_cross')=='bear' else '無交叉')}  {'零軸上方(多頭區)' if market.get('macd_above_zero') else '零軸下方(空頭區)'}
+
+【費波那契回調】
+擺動方向={market.get('fib_swing_dir')}  最近關鍵位={market.get('fib_nearest')}
+{'⭐ 價格落在 0.618~0.786 黃金口袋 — 若此處量縮守穩=右側回調進場區' if market.get('fib_in_golden_zone') else ''}
+
+【右側進場確認 — 突破後縮量回測守穩（不追突破K棒）】
+{f'✅ 多方右側成立：已突破 {market.get("retest_level")}，回踩守穩且量縮 → 這就是Sam等的右側點' if market.get('retest_hold_long') else ''}
+{f'✅ 空方右側成立：已跌破 {market.get("retest_level")}，反抽守不住且量縮 → 右側做空點' if market.get('retest_hold_short') else ''}
+{'（尚無回測守穩確認 — 若只是剛突破那根，屬於追單，等回踩縮量再進）' if not market.get('retest_hold_long') and not market.get('retest_hold_short') else ''}
+
 【形態識別】
 AB=CD等幅：{_fmt_pattern(market.get('pattern_abcd'))}
 三角收斂：{_fmt_pattern(market.get('pattern_triangle'))}
 頭肩頂/底：{_fmt_pattern(market.get('pattern_hs'))}
 W底/M頭：{_fmt_pattern(market.get('pattern_wm'))}
+杯柄：{'✅ 杯柄成型' + ('（已突破杯緣' + str(market.get('pattern_cup',{}).get('rim')) + '，目標' + str(market.get('pattern_cup',{}).get('target')) + '）' if market.get('pattern_cup',{}).get('breakout') else '（未突破杯緣，等突破）') if market.get('pattern_cup',{}).get('detected') else '無'}
+通道：{(market.get('pattern_channel',{}).get('type','') + '通道，價格在' + market.get('pattern_channel',{}).get('position','') + '緣') if market.get('pattern_channel',{}).get('detected') else '無'}
 
 【均線背景（參考用）】
 1H EMA99={market.get('ema99') or 'N/A'}  EMA200={market.get('ema200') or 'N/A'}
@@ -1761,8 +1948,12 @@ EMA有用，但它只是眾多視角之一，不是真理。
 ❌ 不進場：追市 / 量縮中 / 只有EMA一個理由 / 自己都覺得「勉強」
 
 【entry_type 三種選法 — 必須選一個】
-① right_side   → 現在就是好位置，直接市價進，止損清晰
-② left_side    → 提前在結構低/高點佈局，接受被洗風險
+① right_side   → Sam 的主場（74%操作）。定義不是「現在漲了就追」，而是：
+                 價格已『突破』關鍵位 → 回踩該位 → 縮量守穩沒跌回 → 才進。
+                 ⚠️ 突破當根直接市價追 = 追單，不是右側。沒看到回測守穩就用 watch_breakout。
+                 上方數據若顯示「右側進場確認成立」(retest_hold)，那才是真右側點，可加分。
+② left_side    → 提前在結構低/高點佈局，接受被洗風險。
+                 只在『連續背離吸籌完成 + 假突破洗盤確認』的底部才用，且系統會自動縮倉50%。
 ③ watch_breakout → 這個點位很關鍵，但現在不到位或方向未明
                    → 不鎖死方向，等價格到達那個關鍵位後，重新判斷此刻情緒再進場
                    → 系統會在價格接近時重跑完整分析，你那時候再決定做多還是做空
