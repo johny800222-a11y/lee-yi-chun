@@ -309,19 +309,24 @@ def _load_bt_db() -> dict:
 
 def bt_win_rate_ok(symbol: str, side: str) -> tuple[bool, str]:
     """
-    回傳 (True, "")           → 通過，全倉
-    回傳 (True, "REDUCE_SIZE") → 通過，但縮倉40%（樣本不足）
-    回傳 (False, 原因)         → 跳過
-    symbol = "BTCUSDT" 或 "BTC"
-    side   = "long" / "short"
+    三層過濾規則：
+      ❌ 跳過        ← 方向勝率 < 35%
+      縮倉40%        ← 不在DB / 總訊號<15 / 方向樣本<8（樣本不足）
+      縮倉20%        ← 方向勝率 35~49%（觀察中）
+      ✅ 全倉        ← 方向勝率 ≥ 50%
+
+    回傳:
+      (False, 原因)      → 跳過
+      (True, "REDUCE40") → 縮倉40%
+      (True, "REDUCE20") → 縮倉20%
+      (True, "")         → 全倉
     """
     db  = _load_bt_db()
     sym = symbol.replace("/USDT:USDT","").replace("/USDT","").replace("USDT","").upper()
     d   = db.get(sym)
     if not d or d.get("signals", 0) < BT_MIN_SIGNALS:
-        return True, "REDUCE_SIZE"   # 樣本不足 → 縮倉40%，不是全倉放行
+        return True, "REDUCE40"   # 樣本不足 → 縮倉40%
 
-    # 多空分開看
     if side == "long":
         total = d.get("long_sigs", 0)
         wins  = d.get("long_wins", 0)
@@ -330,12 +335,14 @@ def bt_win_rate_ok(symbol: str, side: str) -> tuple[bool, str]:
         wins  = d.get("short_wins", 0)
 
     if total < 8:
-        return True, "REDUCE_SIZE"   # 該方向樣本不足 → 縮倉40%
+        return True, "REDUCE40"   # 方向樣本不足 → 縮倉40%
 
     rate = wins / total * 100
-    if rate < BT_WIN_RATE_FLOOR:
+    if rate < BT_WIN_RATE_FLOOR:           # < 35%
         return False, f"回測{side}勝率{rate:.0f}%<{BT_WIN_RATE_FLOOR}%（{wins}/{total}），假突破多跳過"
-    return True, ""
+    if rate < 50.0:                        # 35~49% 觀察中
+        return True, "REDUCE20"
+    return True, ""                        # ≥ 50% 全倉
 
 def get_top_symbols(exch, n: int = TOP_N) -> list[str]:
     global _mcap_cache, _mcap_cache_ts
@@ -599,8 +606,10 @@ def detect_signal(exch, symbol: str, sig_state: dict) -> Optional[dict]:
                     log.info(f"{symbol} [多] {bt_reason}")
                     sig_state["stage"] = "watching"
                     return None
-                if bt_reason == "REDUCE_SIZE":
+                if bt_reason == "REDUCE40":
                     log.info(f"{symbol} [多] 回測樣本不足，縮倉40%進場")
+                elif bt_reason == "REDUCE20":
+                    log.info(f"{symbol} [多] 回測勝率35~49%觀察中，縮倉20%進場")
                 entry   = float(confirmed["close"])
                 a_point = sig_state["a_point"]
                 sl_price = get_5m_sma99_price(exch, symbol)
@@ -693,8 +702,10 @@ def detect_signal(exch, symbol: str, sig_state: dict) -> Optional[dict]:
                     log.info(f"{symbol} [空] {bt_reason}")
                     sig_state["stage_s"] = "watching_s"
                     return None
-                if bt_reason == "REDUCE_SIZE":
+                if bt_reason == "REDUCE40":
                     log.info(f"{symbol} [空] 回測樣本不足，縮倉40%進場")
+                elif bt_reason == "REDUCE20":
+                    log.info(f"{symbol} [空] 回測勝率35~49%觀察中，縮倉20%進場")
                 entry   = float(confirmed["close"])
                 a_point = sig_state["a_point_s"]
                 sl_price = get_5m_sma99_price(exch, symbol)
@@ -780,16 +791,20 @@ def open_position(pub, auth, state: dict, signal: dict) -> None:
         lev = max(1, int(lev * BTC_BRAKE_LEV_MULT))
         log.info(f"[BTC煞車] {sym} BTC 1H < SMA99，多單槓桿 {orig_lev}x → {lev}x")
 
-    # ── 回測DB未知幣：倉位縮小（繼續累積數據但限制風險）────────────
-    # DB無資料 或 訊號數 < BT_MIN_SIGNALS → 視為未驗證幣，倉位縮至 40%
-    BT_UNKNOWN_MARGIN_MULT = 0.4   # 未知幣倉位乘數
-    bt_ok, _ = bt_win_rate_ok(sym, side)
-    sym_base = sym.replace("/USDT:USDT","").replace("/USDT","").replace("USDT","").upper()
-    db_entry = _load_bt_db().get(sym_base)
-    is_unknown = (not db_entry) or (db_entry.get("signals", 0) < BT_MIN_SIGNALS)
-    margin_mult = BT_UNKNOWN_MARGIN_MULT if is_unknown else 1.0
-    if is_unknown:
-        log.info(f"{sym} 回測數據不足，倉位縮至 {int(BT_UNKNOWN_MARGIN_MULT*100)}%")
+    # ── 回測DB三層倉位控制 ────────────────────────────────────────
+    # REDUCE40 → 縮40%（樣本不足）
+    # REDUCE20 → 縮20%（觀察中，35~49%勝率）
+    # ""       → 全倉（≥50%）
+    _, bt_flag = bt_win_rate_ok(sym, side)
+    if bt_flag == "REDUCE40":
+        margin_mult = 0.4
+        log.info(f"{sym} 回測樣本不足，倉位縮至40%")
+    elif bt_flag == "REDUCE20":
+        margin_mult = 0.8
+        log.info(f"{sym} 回測勝率35~49%（觀察中），倉位縮至80%")
+    else:
+        margin_mult = 1.0
+    is_unknown = (bt_flag == "REDUCE40")
 
     margin = capital * MARGIN_PCT * margin_mult
     size   = (margin * lev) / entry
