@@ -309,15 +309,17 @@ def _load_bt_db() -> dict:
 
 def bt_win_rate_ok(symbol: str, side: str) -> tuple[bool, str]:
     """
-    回傳 (True, "") 代表通過，(False, 原因) 代表跳過
+    回傳 (True, "")           → 通過，全倉
+    回傳 (True, "REDUCE_SIZE") → 通過，但縮倉40%（樣本不足）
+    回傳 (False, 原因)         → 跳過
     symbol = "BTCUSDT" 或 "BTC"
     side   = "long" / "short"
     """
     db  = _load_bt_db()
-    sym = symbol.replace("USDT","").replace("/USDT:USDT","").upper()
+    sym = symbol.replace("/USDT:USDT","").replace("/USDT","").replace("USDT","").upper()
     d   = db.get(sym)
     if not d or d.get("signals", 0) < BT_MIN_SIGNALS:
-        return True, ""   # 資料不足，不過濾
+        return True, "REDUCE_SIZE"   # 樣本不足 → 縮倉40%，不是全倉放行
 
     # 多空分開看
     if side == "long":
@@ -328,7 +330,7 @@ def bt_win_rate_ok(symbol: str, side: str) -> tuple[bool, str]:
         wins  = d.get("short_wins", 0)
 
     if total < 8:
-        return True, ""   # 該方向樣本不足，不過濾
+        return True, "REDUCE_SIZE"   # 該方向樣本不足 → 縮倉40%
 
     rate = wins / total * 100
     if rate < BT_WIN_RATE_FLOOR:
@@ -597,11 +599,16 @@ def detect_signal(exch, symbol: str, sig_state: dict) -> Optional[dict]:
                     log.info(f"{symbol} [多] {bt_reason}")
                     sig_state["stage"] = "watching"
                     return None
+                if bt_reason == "REDUCE_SIZE":
+                    log.info(f"{symbol} [多] 回測樣本不足，縮倉40%進場")
                 entry   = float(confirmed["close"])
                 a_point = sig_state["a_point"]
                 sl_price = get_5m_sma99_price(exch, symbol)
                 if sl_price is None or sl_price >= entry:
                     log.info(f"{symbol} [多] 無法取得 5m SMA99 或 SL >= entry，跳過")
+                    sig_state["stage"] = "watching"
+                elif (entry - sl_price) / entry < 0.008:
+                    log.info(f"{symbol} [多] 5m SMA99 距進場價太近（{(entry-sl_price)/entry*100:.2f}%<0.8%），SL無緩衝，跳過")
                     sig_state["stage"] = "watching"
                 else:
                     sl_dist  = entry - sl_price
@@ -686,11 +693,16 @@ def detect_signal(exch, symbol: str, sig_state: dict) -> Optional[dict]:
                     log.info(f"{symbol} [空] {bt_reason}")
                     sig_state["stage_s"] = "watching_s"
                     return None
+                if bt_reason == "REDUCE_SIZE":
+                    log.info(f"{symbol} [空] 回測樣本不足，縮倉40%進場")
                 entry   = float(confirmed["close"])
                 a_point = sig_state["a_point_s"]
                 sl_price = get_5m_sma99_price(exch, symbol)
                 if sl_price is None or sl_price <= entry:
                     log.info(f"{symbol} [空] 無法取得 5m SMA99 或 SL <= entry，跳過")
+                    sig_state["stage_s"] = "watching_s"
+                elif (sl_price - entry) / entry < 0.008:
+                    log.info(f"{symbol} [空] 5m SMA99 距進場價太近（{(sl_price-entry)/entry*100:.2f}%<0.8%），SL無緩衝，跳過")
                     sig_state["stage_s"] = "watching_s"
                 else:
                     sl_dist  = sl_price - entry
@@ -768,7 +780,18 @@ def open_position(pub, auth, state: dict, signal: dict) -> None:
         lev = max(1, int(lev * BTC_BRAKE_LEV_MULT))
         log.info(f"[BTC煞車] {sym} BTC 1H < SMA99，多單槓桿 {orig_lev}x → {lev}x")
 
-    margin = capital * MARGIN_PCT
+    # ── 回測DB未知幣：倉位縮小（繼續累積數據但限制風險）────────────
+    # DB無資料 或 訊號數 < BT_MIN_SIGNALS → 視為未驗證幣，倉位縮至 40%
+    BT_UNKNOWN_MARGIN_MULT = 0.4   # 未知幣倉位乘數
+    bt_ok, _ = bt_win_rate_ok(sym, side)
+    sym_base = sym.replace("/USDT:USDT","").replace("/USDT","").replace("USDT","").upper()
+    db_entry = _load_bt_db().get(sym_base)
+    is_unknown = (not db_entry) or (db_entry.get("signals", 0) < BT_MIN_SIGNALS)
+    margin_mult = BT_UNKNOWN_MARGIN_MULT if is_unknown else 1.0
+    if is_unknown:
+        log.info(f"{sym} 回測數據不足，倉位縮至 {int(BT_UNKNOWN_MARGIN_MULT*100)}%")
+
+    margin = capital * MARGIN_PCT * margin_mult
     size   = (margin * lev) / entry
 
     a    = signal["a_point"]
@@ -838,6 +861,7 @@ def open_position(pub, auth, state: dict, signal: dict) -> None:
            f"  止損：{sl:.5g}（{sl_pct:.1f}%）\n"
            f"  TP（等幅全出）：{tp1:.5g}（+{tp1_pct:.1f}%）\n"
            f"  倉位：{margin*lev:.1f}U  風險：{risk_usd:.2f}U"
+           + ("\n  ⚠️ 回測數據不足，縮倉40%" if is_unknown else "")
            + ("\n  📋 Paper Mode" if PAPER_MODE else ""))
     tg(msg)
     log.info(f"開倉 {sym} @ {entry:.5g}  lev={lev}x  conf={conf}")
