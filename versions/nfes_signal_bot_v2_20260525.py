@@ -62,8 +62,8 @@ STRATEGY_NAME = "NFES MTF v2"
 # ═══════════════════════════════════════════════════════════════
 TIMEFRAME     = "4h"                # 層二：主圖進場週期
 D_TIMEFRAME   = "1d"                # 層一：日線方向濾網
-SCAN_INTERVAL = 360                 # 每 6 分鐘掃一次（全市場約 673 支）
-TOP_N         = 9999                # 全市場（排除上架未滿30天）
+SCAN_INTERVAL = 300                 # 每 5 分鐘掃一次（4H 訊號不需更頻繁）
+TOP_N         = 100                 # 掃描 Top N USDT 永續合約
 LIMIT         = 200                 # 4H K棒數量（足夠計算指標）
 D_LIMIT       = 100                 # 日線K棒數量
 
@@ -71,7 +71,8 @@ D_LIMIT       = 100                 # 日線K棒數量
 STATE_FILE    = Path(__file__).parent / "nfes_bot_state.json"
 
 # JSONBin 雲端同步（與 ema99_bot 共用同一個 .env）
-# jsonbin 已移除（Render 免費額度用完，改純本地儲存）
+JSONBIN_API_KEY     = os.getenv("JSONBIN_API_KEY", "")
+JSONBIN_NFES_BIN_ID = os.getenv("JSONBIN_NFES_BIN_ID", "")
 
 # ── 層一：日線 Supertrend ──────────────────────────────────────
 D_SENSITIVITY = 4
@@ -115,17 +116,10 @@ INTRADAY_SHORT_HOURS  = 4            # 多頭市場空單：持倉最多 4 小�
 # 1. 流動性過濾：24h 成交量（USDT）必須 > 此值才可進場
 MIN_QUOTE_VOLUME      = 5_000_000    # $5M/24h，過濾小幣（DODOX、RAVE 等）
 
-# 2. RSI 過濾（v2.1 動能斜率版，2026-06-06）
-# 原條件備份：versions/nfes_signal_bot_v2_rsi_original_20260606.py
-# 原條件：SHORT_RSI_MIN=50, LONG_RSI_MAX=65
+# 2. RSI 過濾（防止追跌做空 / 追漲做多）
 RSI_PERIOD            = 14
-# v2.1 新條件改用斜率+區間判斷（見 _rsi_ok_short / _rsi_ok_long）
-SHORT_RSI_SLOPE_MAX   = 55           # 空單：RSI < 55（不在明顯超買）
-LONG_RSI_SLOPE_MIN    = 45           # 多單：RSI > 45（不在明顯超賣）
-RSI_BOUNCE_SHORT_LO   = 35           # 反彈失敗區間下緣（空單）
-RSI_BOUNCE_SHORT_HI   = 40           # 反彈失敗區間上緣（空單）
-RSI_BOUNCE_LONG_LO    = 60           # 回測支撐區間下緣（多單）
-RSI_BOUNCE_LONG_HI    = 65           # 回測支撐區間上緣（多單）
+SHORT_RSI_MIN         = 50           # 做空時 4H RSI 必須 > 50（未過賣，還有下跌空間）
+LONG_RSI_MAX          = 65           # 做多時 4H RSI 必須 < 65（未過熱，還有上漲空間）
 
 # 3. 止損後同幣冷卻延長
 STOPLOSS_COOLDOWN_H   = 24           # 止損後冷卻 24h（原 1h）
@@ -361,41 +355,17 @@ def detect_signals(ohlcv_4h: list, ohlcv_d: list) -> dict | None:
     entry_long  = flip_up or (cont_up and pb_long  and h4_c[i] > h4_lower[i])
     entry_short = flip_dn or (cont_dn and pb_short and h4_c[i] < h4_upper[i])
 
-    # ── v2.1：RSI 動能斜率過濾（2026-06-06）─────────────────────
-    # 原條件：空單RSI>50 / 多單RSI<65（過嚴，熊市幾乎全攔）
-    # 新條件：擇一滿足
-    #   條件1（斜率）：RSI方向正確 + RSI在合理區間
-    #   條件2（反彈測試失敗）：RSI曾觸及測試區間但未突破
+    # ── v2：RSI 過濾（防追跌做空 / 防追漲做多）─────────────────
     rsi4h = calc_rsi(h4_c, RSI_PERIOD)
-    rsi_now  = rsi4h[i]   if not np.isnan(rsi4h[i])   else 50.0
-    rsi_prev = rsi4h[i-1] if i >= 1 and not np.isnan(rsi4h[i-1]) else rsi_now
-    rsi_p2   = rsi4h[i-2] if i >= 2 and not np.isnan(rsi4h[i-2]) else rsi_prev
-    rsi_p3   = rsi4h[i-3] if i >= 3 and not np.isnan(rsi4h[i-3]) else rsi_p2
+    rsi_now = rsi4h[i] if not np.isnan(rsi4h[i]) else 50.0
 
-    # 空單 RSI 判斷
-    if entry_short:
-        slope_down = (rsi_now < rsi_prev < rsi_p2)          # 最近3根RSI下降
-        c1_short   = slope_down and rsi_now < SHORT_RSI_SLOPE_MAX  # 條件1：斜率向下+RSI<55
-        # 條件2：過去5根內曾進入35~40區間，但未突破40，且當前RSI仍在下彎
-        rsi_window = [rsi4h[max(0,i-k)] for k in range(5) if not np.isnan(rsi4h[max(0,i-k)])]
-        bounce_touched = any(RSI_BOUNCE_SHORT_LO <= r <= RSI_BOUNCE_SHORT_HI for r in rsi_window)
-        bounce_failed  = max(rsi_window) < RSI_BOUNCE_SHORT_HI + 2  # 未站上40以上
-        c2_short = bounce_touched and bounce_failed and (rsi_now < rsi_prev)  # 條件2：反彈失敗+重新下彎
-        if not (c1_short or c2_short):
-            log.info(f"[RSI_FILTER] 空單跳過：4H RSI={rsi_now:.1f} 斜率不符（slope_down={slope_down}, bounce={c2_short}）")
-            entry_short = False
+    if entry_short and rsi_now < SHORT_RSI_MIN:
+        log.info(f"[RSI_FILTER] 空單跳過：4H RSI={rsi_now:.1f} < {SHORT_RSI_MIN}（已過賣，追跌風險）")
+        entry_short = False
 
-    # 多單 RSI 判斷
-    if entry_long:
-        slope_up  = (rsi_now > rsi_prev > rsi_p2)           # 最近3根RSI上升
-        c1_long   = slope_up and rsi_now > LONG_RSI_SLOPE_MIN    # 條件1：斜率向上+RSI>45
-        rsi_window = [rsi4h[max(0,i-k)] for k in range(5) if not np.isnan(rsi4h[max(0,i-k)])]
-        pullback_touched = any(RSI_BOUNCE_LONG_LO <= r <= RSI_BOUNCE_LONG_HI for r in rsi_window)
-        pullback_held    = min(rsi_window) > RSI_BOUNCE_LONG_LO - 2   # 未跌破60以下
-        c2_long = pullback_touched and pullback_held and (rsi_now > rsi_prev)  # 條件2：回測支撐+重新上揚
-        if not (c1_long or c2_long):
-            log.info(f"[RSI_FILTER] 多單跳過：4H RSI={rsi_now:.1f} 斜率不符（slope_up={slope_up}, pullback={c2_long}）")
-            entry_long = False
+    if entry_long and rsi_now > LONG_RSI_MAX:
+        log.info(f"[RSI_FILTER] 多單跳過：4H RSI={rsi_now:.1f} > {LONG_RSI_MAX}（已過熱，追漲風險）")
+        entry_long = False
 
     # ── 綜合三層條件 ─────────────────────────────────────────
     raw_long  = entry_long  and vol_ok and day_long_ok
@@ -414,36 +384,16 @@ def detect_signals(ohlcv_4h: list, ohlcv_d: list) -> dict | None:
 
     # ── 風控計算（基於 ATR，R 倍數）────────────────────────────
     sl_dist = atr_now * SL_ATR_MULT    # SL 距離
-
-    # 自動判斷小數位數（避免超小幣種被 round(x, 2) 歸零）
-    def _smart_round(val: float) -> float:
-        if val == 0:
-            return 0.0
-        import math
-        mag = -int(math.floor(math.log10(abs(val)))) + 3
-        digits = max(2, mag)
-        return round(val, digits)
-
     if side == "long":
-        sl  = _smart_round(close_now - sl_dist)
-        tp1 = _smart_round(close_now + sl_dist * TP1_R)
-        tp2 = _smart_round(close_now + sl_dist * TP2_R)
-        tp3 = _smart_round(close_now + sl_dist * TP3_R)
+        sl  = round(close_now - sl_dist, 2)
+        tp1 = round(close_now + sl_dist * TP1_R, 2)
+        tp2 = round(close_now + sl_dist * TP2_R, 2)
+        tp3 = round(close_now + sl_dist * TP3_R, 2)
     else:
-        sl  = _smart_round(close_now + sl_dist)
-        tp1 = _smart_round(max(close_now - sl_dist * TP1_R, close_now * 0.01))
-        tp2 = _smart_round(max(close_now - sl_dist * TP2_R, close_now * 0.005))
-        tp3 = _smart_round(max(close_now - sl_dist * TP3_R, close_now * 0.001))
-
-    # 安全檢查：TP/SL 不可為 0 或負數
-    if sl == 0 or tp1 == 0 or tp3 == 0 or tp1 <= 0 or tp3 <= 0:
-        log.warning(f"[SIGNAL] {side} 風控計算異常 sl={sl} tp1={tp1} tp3={tp3}，跳過此訊號")
-        return None
-
-    # 空單額外驗證：SL距離不可超過進場價（否則TP會是負數）
-    if side == "short" and sl_dist * TP3_R >= close_now:
-        log.warning(f"[SIGNAL] 空單 ATR過大（sl_dist={sl_dist:.6g} × {TP3_R}R >= entry={close_now:.6g}），跳過")
-        return None
+        sl  = round(close_now + sl_dist, 2)
+        tp1 = round(close_now - sl_dist * TP1_R, 2)
+        tp2 = round(close_now - sl_dist * TP2_R, 2)
+        tp3 = round(close_now - sl_dist * TP3_R, 2)
 
     bar_ts = ohlcv_4h[i][0]
 
@@ -480,12 +430,37 @@ _nfes_state: dict = {
     "last_run":  "",
 }
 
+def _jsonbin_save_worker(snapshot: dict):
+    """背景執行：retry 3 次，完全不阻塞主執行緒"""
+    if not JSONBIN_API_KEY or not JSONBIN_NFES_BIN_ID:
+        return
+    url     = f"https://api.jsonbin.io/v3/b/{JSONBIN_NFES_BIN_ID}"
+    headers = {"X-Master-Key": JSONBIN_API_KEY, "Content-Type": "application/json"}
+    for attempt in range(3):
+        try:
+            r = requests.put(url, headers=headers, json=snapshot, timeout=15)
+            if r.ok:
+                log.info(f"jsonbin sync ok (attempt {attempt+1})")
+                return
+            log.warning(f"jsonbin save HTTP {r.status_code} (attempt {attempt+1})")
+        except Exception as e:
+            log.warning(f"jsonbin save failed (attempt {attempt+1}): {e}")
+        time.sleep(5)
+    log.error("jsonbin sync failed after 3 attempts")
+
+def _jsonbin_save():
+    """非同步推送至 JSONBin（背景 thread，不影響監控精度）"""
+    snapshot = json.loads(json.dumps(_nfes_state))   # deep copy
+    t = threading.Thread(target=_jsonbin_save_worker, args=(snapshot,), daemon=True)
+    t.start()
+
 def _save_state():
     """將 NFES 持倉與歷史記錄寫入 JSON，供 portfolio_app 讀取"""
     _nfes_state["last_run"] = datetime.now(timezone.utc).isoformat()
     STATE_FILE.write_text(
         json.dumps(_nfes_state, ensure_ascii=False, indent=2)
     )
+    _jsonbin_save()   # 非同步，立即返回
 
 def _record_open(payload: dict):
     """記錄新開倉至 state，並從共用資金池扣除保證金"""
@@ -547,29 +522,15 @@ def _record_close(sym: str, reason: str, pnl: float = 0.0):
     if pos:
         margin = pos.get("margin", 0)
         adjust_capital(margin + pnl, f"NFES close {sym} [{reason}]")
-        pnl_rounded = round(pnl, 2)
         _nfes_state["trades"].append({
             "sym"     : sym,
             "strategy": STRATEGY_NAME,
             "side"    : pos.get("side", ""),
             "entry_px": pos.get("entry_px", 0),
-            "exit_px" : pos.get("cur_px", 0),
-            "tp1"     : pos.get("tp1"),
-            "tp2"     : pos.get("tp2"),
-            "tp3"     : pos.get("tp3"),
-            "sl"      : pos.get("sl"),
-            "pnl"     : pnl_rounded,
+            "pnl"     : round(pnl, 2),
             "reason"  : reason,
-            "entry_ts": pos.get("entry_ts", ""),
             "exit_ts" : datetime.now(timezone.utc).isoformat(),
         })
-        # 累計盈虧獨立追蹤（不受 trade 筆數上限影響）
-        _nfes_state["total_realized_pnl"] = round(
-            _nfes_state.get("total_realized_pnl", 0.0) + pnl_rounded, 2
-        )
-        _nfes_state["total_trades"] = _nfes_state.get("total_trades", 0) + 1
-        if pnl_rounded > 0:
-            _nfes_state["total_wins"] = _nfes_state.get("total_wins", 0) + 1
         # v2：記錄止損冷卻（24h）或日內虧損冷卻（4h）
         if reason == "stop_loss" and pnl < 0:
             _nfes_state.setdefault("cooldown", {})[sym] = {
@@ -581,8 +542,8 @@ def _record_close(sym: str, reason: str, pnl: float = 0.0):
                 "until": (datetime.now(timezone.utc) + timedelta(hours=INTRADAY_LOSS_COOL_H)).isoformat(),
                 "reason": "intraday_loss"
             }
-        # 只保留最近 500 筆（保留更多歷史）
-        _nfes_state["trades"] = _nfes_state["trades"][-500:]
+        # 只保留最近 50 筆
+        _nfes_state["trades"] = _nfes_state["trades"][-50:]
     _save_state()
 
 # ═══════════════════════════════════════════════════════════════
@@ -621,12 +582,6 @@ def monitor_positions(exch: ccxt.Exchange):
         side   = pos.get("side", "long")
         qty    = pos.get("qty", 0)
         notional = pos.get("notional", 0)
-
-        # 即時計算未實現損益
-        is_long_flag = side == "long"
-        pos["unrealized_pnl"] = round(
-            (cur - entry) / entry * notional * (1 if is_long_flag else -1), 2
-        )
         tp2_hit = pos.get("tp2_hit", False)
         tp1_hit = pos.get("tp1_hit", False)
         is_long = side == "long"
@@ -733,70 +688,17 @@ def monitor_positions(exch: ccxt.Exchange):
 # 資料拉取
 # ═══════════════════════════════════════════════════════════════
 
-# ── CoinGecko 市值排名快取（每小時更新一次）────────────────────
-_mcap_cache: dict = {"ranks": {}, "ts": 0}
-
-def _get_mcap_ranks(top_n: int = 300) -> dict:
-    """從 CoinGecko 取市值排名，回傳 {symbol_upper: rank}，快取 1 小時"""
-    now = time.time()
-    if _mcap_cache["ranks"] and now - _mcap_cache["ts"] < 3600:
-        return _mcap_cache["ranks"]
-    ranks = {}
-    try:
-        per_page = 250
-        pages = (top_n + per_page - 1) // per_page
-        for page in range(1, pages + 1):
-            r = requests.get(
-                "https://api.coingecko.com/api/v3/coins/markets",
-                params={
-                    "vs_currency": "usd",
-                    "order": "market_cap_desc",
-                    "per_page": per_page,
-                    "page": page,
-                    "sparkline": False,
-                },
-                timeout=10,
-            )
-            if not r.ok:
-                break
-            for c in r.json():
-                ranks[c["symbol"].upper()] = c["market_cap_rank"] or 9999
-        _mcap_cache["ranks"] = ranks
-        _mcap_cache["ts"] = now
-        log.info(f"[MCAP] CoinGecko 市值排名更新，共 {len(ranks)} 筆")
-    except Exception as e:
-        log.warning(f"[MCAP] CoinGecko 取得失敗，沿用快取：{e}")
-    return _mcap_cache["ranks"]
-
-
 def get_top_symbols(exch: ccxt.Exchange) -> list[str]:
-    """依市值排名取前 TOP_N 支 Binance USDT 永續合約（排除上架未滿30天）"""
-    from datetime import datetime, timezone, timedelta
+    """取得 Top N USDT 永續合約（依24h成交量排序）"""
     exch.load_markets()
-    one_month_ago = datetime.now(timezone.utc) - timedelta(days=30)
-
-    # 取得市值排名（快取 1 小時）
-    mcap_ranks = _get_mcap_ranks(top_n=1000)  # 全市場模式，拉足夠多的市值資料
-
-    # 建立 Binance 合約清單，過濾上架未滿30天
-    valid_syms = []
-    for sym, mkt in exch.markets.items():
-        if not sym.endswith("/USDT:USDT"):
-            continue
-        listed = mkt.get("info", {}).get("onboardDate")
-        if listed:
-            listed_dt = datetime.fromtimestamp(int(listed) / 1000, tz=timezone.utc)
-            if listed_dt > one_month_ago:
-                continue  # 排除剛上架
-        base = sym.split("/")[0]
-        rank = mcap_ranks.get(base, 9999)
-        valid_syms.append((sym, rank))
-
-    # 按市值排名排序，取前 TOP_N
-    valid_syms.sort(key=lambda x: x[1])
-    result = [s[0] for s in valid_syms[:TOP_N]]
-    log.info(f"[MCAP] 掃描清單：前 {TOP_N} 支（市值排名）共 {len(result)} 支")
-    return result
+    tickers = exch.fetch_tickers(params={"type": "future"})
+    cands = [
+        (sym, float(t.get("quoteVolume") or 0))
+        for sym, t in tickers.items()
+        if sym.endswith("/USDT:USDT") and float(t.get("quoteVolume") or 0) > 0
+    ]
+    cands.sort(key=lambda x: x[1], reverse=True)
+    return [c[0] for c in cands[:TOP_N]]
 
 
 def fetch_data(exch: ccxt.Exchange, symbol: str):
@@ -845,19 +747,15 @@ def main():
     if STATE_FILE.exists():
         try:
             saved = json.loads(STATE_FILE.read_text())
-            _nfes_state["positions"]          = saved.get("positions", {})
-            _nfes_state["trades"]             = saved.get("trades",    [])
-            _nfes_state["total_realized_pnl"] = saved.get("total_realized_pnl", 0.0)
-            _nfes_state["total_trades"]        = saved.get("total_trades", 0)
-            _nfes_state["total_wins"]          = saved.get("total_wins",  0)
-            _nfes_state["cooldown"]            = saved.get("cooldown",    {})
+            _nfes_state["positions"] = saved.get("positions", {})
+            _nfes_state["trades"]    = saved.get("trades",    [])
         except Exception:
             pass
 
     exch = ccxt.binanceusdm({
         "apiKey"         : os.getenv("BINANCE_API_KEY",    ""),
         "secret"         : os.getenv("BINANCE_API_SECRET", ""),
-        "options"        : {"defaultType": "future", "fetchCurrencies": False},
+        "options"        : {"defaultType": "future"},
         "enableRateLimit": True,
     })
 
@@ -892,39 +790,8 @@ def main():
         except Exception as _e:
             log.warning(f"儲存 bar_ts 失敗: {_e}")
 
-    def _check_delisting(exch_obj):
-        """偵測持倉中即將下架（SETTLING/active=False）的幣種，自動平倉並歸還資金"""
-        try:
-            markets = exch_obj.load_markets(reload=True)
-        except Exception as e:
-            log.warning(f"[下架偵測] load_markets 失敗: {e}")
-            return
-        delisting = [
-            sym for sym in list(_nfes_state.get("positions", {}))
-            if not markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("active", True)
-            or markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("info", {}).get("status") == "SETTLING"
-        ]
-        for sym in delisting:
-            pos = _nfes_state.get("positions", {}).get(sym)
-            if not pos:
-                continue
-            pnl = pos.get("unrealized_pnl", 0)
-            _record_close(sym, "auto_close_delisting", pnl)
-            msg = (f"⚠️ <b>{sym}</b> 合約下架中（SETTLING）\n"
-                   f"已自動結算 | 方向:{pos.get('side','')} | 進場:{pos.get('entry_px',0):.6g}\n"
-                   f"模擬損益: <b>{pnl:+.2f} USDT</b> | 保證金已釋放")
-            try:
-                tg(msg)
-            except Exception:
-                pass
-            log.warning(f"[下架偵測] {sym} 已自動平倉，pnl={pnl:+.2f}")
-        _save_state()
-
     while True:
         try:
-            # 每次掃描前先偵測持倉中下架幣種
-            _check_delisting(exch)
-
             # 取 Top N 幣種掃描新訊號
             try:
                 symbols = get_top_symbols(exch)

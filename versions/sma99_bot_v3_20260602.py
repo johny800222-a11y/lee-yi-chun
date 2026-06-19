@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SMA99 + BB Squeeze V5 — 自動交易 Bot
+SMA99 + BB Squeeze V3 — 自動交易 Bot
 ─────────────────────────────────────────────────────────────
 功能：
   ‧ 每小時掃描 Top100 USDT 永續合約
@@ -70,7 +70,7 @@ SLOPE_LOOKBACK  = 3
 # ── 兩段式突破（Option B，2026-05 v1.2）─────────────────────────
 # 第一次突破 SMA99 → 回落 → 第二次突破 SMA99 + BB中軌 才進場
 # TWO_STAGE_WINDOW：第一次突破後最多幾根15m K棒內第二次突破才算有效
-TWO_STAGE_WINDOW = 8    # 8×15m = 2 小時內（v5 放寬，讓兩段式有更多時間形成）
+TWO_STAGE_WINDOW = 4    # 4×15m = 1 小時內
 
 # ── 盈虧比強化（2026-05 v2.0）───────────────────────────────────
 # ① 進場前 R/R 過濾：(TP - entry) / (entry - SL) 必須 ≥ MIN_ENTRY_RR
@@ -95,12 +95,7 @@ ATR_TP_ENABLE   = True  # 開啟 ATR 備用止盈
 
 # ── v2 強化：SMA99 斜率過濾（空單需均線向下）────────────────────
 EMA_SLOPE_BARS  = 5      # 用前 N 根判斷 SMA99 斜率
-SHORT_EMA_SLOPE_THRESHOLD = -0.00005  # SMA99 每根K棒跌幅（v5.2: -0.0002→-0.00005，放寬4倍，昨天斜率多在-0.0001左右被誤擋）
-
-# ── BB 進場區間設定 ─────────────────────────────────────────
-BB_UPPER_BLOCK  = 0.92   # 價格超過 BB_lower + (BB_upper-BB_lower)*此比例 → 視為近上緣，跳過（v5: 85%→92%）
-#   = 0.92 表示：下緣到上緣的 92% 以上才擋，比 0.85 更寬鬆
-#   效果：BB 下緣~上緣 92% 區間都可進，只有真正貼近上緣才擋
+SHORT_EMA_SLOPE_THRESHOLD = -0.0002  # SMA99 每根K棒跌幅（相對比例）必須 < 此值
 
 # ── 強化參數（2026-05 月度檢討新增）──────────────────────────
 VOL_MA_N        = 20     # 成交量均線長度
@@ -386,10 +381,6 @@ def get_exchange() -> ccxt.binanceusdm:
         "apiKey"         : BINANCE_KEY,
         "secret"         : BINANCE_SECRET,
         "enableRateLimit": True,
-        "options"        : {
-            "defaultType"    : "future",
-            "fetchCurrencies": False,   # 禁止呼叫現貨 sapi/v1/capital/config/getall
-        },
     })
 
 
@@ -533,26 +524,6 @@ def add_4h_ind(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _adx(hi: pd.Series, lo: pd.Series, cl: pd.Series, n: int = 14) -> pd.Series:
-    """計算 ADX（趨勢強度，0~100，>25 視為趨勢明確）"""
-    tr = pd.concat([hi - lo,
-                    (hi - cl.shift()).abs(),
-                    (lo - cl.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(span=n, adjust=False).mean()
-    dm_p = (hi - hi.shift()).clip(lower=0)
-    dm_m = (lo.shift() - lo).clip(lower=0)
-    dm_p = dm_p.where(dm_p > dm_m, 0)
-    dm_m = dm_m.where(dm_m > dm_p, 0)
-    di_p = 100 * dm_p.ewm(span=n, adjust=False).mean() / atr.replace(0, np.nan)
-    di_m = 100 * dm_m.ewm(span=n, adjust=False).mean() / atr.replace(0, np.nan)
-    dx   = (100 * (di_p - di_m).abs() / (di_p + di_m).replace(0, np.nan)).fillna(0)
-    return dx.ewm(span=n, adjust=False).mean()
-
-
-ADX_PERIOD    = 14    # ADX 計算週期
-ADX_THRESHOLD = 15    # ADX 門檻（v5: 20→15，捕捉橫盤邊緣趨勢，15 以下才視為真正無趨勢）
-
-
 def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["sma"]    = _sma(df["close"], EMA_N)
@@ -561,8 +532,7 @@ def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
     df["bb_m"]   = bb_m
     df["bb_l"]   = bb_l
     df["atr"]    = _atr(df["high"], df["low"], df["close"], ATR_N)
-    df["vol_ma"] = df["volume"].rolling(VOL_MA_N).mean()
-    df["adx"]    = _adx(df["high"], df["low"], df["close"], ADX_PERIOD)
+    df["vol_ma"] = df["volume"].rolling(VOL_MA_N).mean()   # 成交量均線
     return df
 
 
@@ -627,22 +597,10 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
     # ── 當根：第二次突破條件 ──────────────────────────────────
     if bar["close"] <= bar["sma"]:
         return None
-    # 前根必須在 SMA99 以下（確認是穿越，非高位震盪）
-    if prev["close"] > prev["sma"]:
-        return None
-    # BB 中軌確認（v5 補回 5/12 精神）：突破 SMA99 同時需突破 BB 中軌，動能確認
     if bar["close"] <= bar["bb_m"]:
         return None
-    # BB 上緣過濾：價格貼近 BB 上緣 → 追高風險，跳過
-    bb_range = bar["bb_u"] - bar["bb_l"]
-    bb_pos   = (bar["close"] - bar["bb_l"]) / bb_range if bb_range > 0 else 0
-    if bb_pos >= BB_UPPER_BLOCK:
-        log.info(f"[BB_FILTER] long 跳過：價格在 BB {bb_pos:.0%} 位置，貼近上緣（門檻 {BB_UPPER_BLOCK:.0%}）")
-        return None
-    # ADX 趨勢強度確認（過濾橫盤假突破）
-    adx_val = bar.get("adx", 0)
-    if adx_val < ADX_THRESHOLD:
-        log.info(f"[ADX_FILTER] long 跳過：ADX={adx_val:.1f} < {ADX_THRESHOLD}（趨勢不夠強）")
+    # 前根必須在 SMA99 以下（確認是穿越，非高位震盪）
+    if prev["close"] > prev["sma"]:
         return None
 
     # ── 尋找第一次突破 ────────────────────────────────────────
@@ -683,42 +641,33 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
 
 def _entry_signal_short(d1: pd.DataFrame) -> Optional[dict]:
     """
-    空單進場訊號（兩段式，v5.1 對稱多單邏輯）：
-    ① 在前 TWO_STAGE_WINDOW 根K棒內找到「由上往下穿越 SMA99」的第一次跌破
-    ② 前根收盤 >= SMA99（確認曾反彈回 SMA99 上方或 SMA99 附近）
-    ③ 當根收盤 < SMA99 且 < BB 中軌（第二次跌破，觸發進場）
-    ④ 量能確認 + ADX + SMA99 斜率
-    → 解決「持續下跌時 prev 永遠在 SMA99 下方導致空單不觸發」問題
+    空單進場訊號（_entry_signal 的鏡像）：
+    ‧ 前根收盤 > SMA99（剛在上方）
+    ‧ 當根收盤 < SMA99 且 < BB 中軌
+    ‧ 前 WASHOUT_BARS 根收盤皆 > SMA99（高位洗盤後翻空）
+    ‧ 量能確認
     """
     idx = len(d1) - 1
-    if idx < EMA_N + BB_N + TWO_STAGE_WINDOW + 6:
+    if idx < EMA_N + BB_N + WASHOUT_BARS + 5:
         return None
     bar  = d1.iloc[idx]
     prev = d1.iloc[idx - 1]
 
-    # ── 當根：第二次跌破條件 ──────────────────────────────────
     if bar["close"] >= bar["sma"]:
         return None
     if bar["close"] >= bar["bb_m"]:
         return None
-    # 前根必須在 SMA99 上方（確認是穿越，非持續下跌）
     if prev["close"] < prev["sma"]:
         return None
 
-    # ── 尋找第一次跌破 ────────────────────────────────────────
-    # 在前 TWO_STAGE_WINDOW+1 根K棒中找「由上向下穿越 SMA99」的那根
-    found_first = False
-    for k in range(2, TWO_STAGE_WINDOW + 2):
-        if idx - k - 1 < 0:
+    # 連續高位 K 棒計數
+    consec = 0
+    for k in range(1, idx + 1):
+        if d1.iloc[idx - k]["close"] >= d1.iloc[idx - k]["sma"]:
+            consec += 1
+        else:
             break
-        bar_k      = d1.iloc[idx - k]
-        bar_k_prev = d1.iloc[idx - k - 1]
-        if (bar_k_prev["close"] >= bar_k_prev["sma"] and
-                bar_k["close"] < bar_k["sma"]):
-            found_first = True
-            break
-
-    if not found_first:
+    if consec < WASHOUT_BARS:
         return None
 
     # 量能確認
@@ -735,12 +684,6 @@ def _entry_signal_short(d1: pd.DataFrame) -> Optional[dict]:
             if slope > SHORT_EMA_SLOPE_THRESHOLD:
                 log.info(f"[SLOPE_FILTER] short 跳過：SMA99 斜率={slope:.5f} > {SHORT_EMA_SLOPE_THRESHOLD}（均線未向下）")
                 return None
-
-    # ADX 趨勢強度確認
-    adx_val = bar.get("adx", 0)
-    if adx_val < ADX_THRESHOLD:
-        log.info(f"[ADX_FILTER] short 跳過：ADX={adx_val:.1f} < {ADX_THRESHOLD}（趨勢不夠強）")
-        return None
 
     entry_px = bar["close"]
     sl = max(bar["sma"], bar["bb_u"])
@@ -1241,7 +1184,7 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
 
     if new_items:
         log.info(f"觀察名單新增 {len(new_items)} 個: {[w['sym'].split('/')[0] for w in new_items]}")
-        # tg.on_watchlist(new_items, PAPER_MODE)  # 已關閉：訊號過多，2026-06-07
+        tg.on_watchlist(new_items, PAPER_MODE)
     else:
         log.info(f"觀察名單無新增（目前追蹤 {len(current_syms)} 個）")
 

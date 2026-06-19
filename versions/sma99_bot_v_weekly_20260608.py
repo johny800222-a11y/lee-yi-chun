@@ -386,10 +386,6 @@ def get_exchange() -> ccxt.binanceusdm:
         "apiKey"         : BINANCE_KEY,
         "secret"         : BINANCE_SECRET,
         "enableRateLimit": True,
-        "options"        : {
-            "defaultType"    : "future",
-            "fetchCurrencies": False,   # 禁止呼叫現貨 sapi/v1/capital/config/getall
-        },
     })
 
 

@@ -892,39 +892,8 @@ def main():
         except Exception as _e:
             log.warning(f"儲存 bar_ts 失敗: {_e}")
 
-    def _check_delisting(exch_obj):
-        """偵測持倉中即將下架（SETTLING/active=False）的幣種，自動平倉並歸還資金"""
-        try:
-            markets = exch_obj.load_markets(reload=True)
-        except Exception as e:
-            log.warning(f"[下架偵測] load_markets 失敗: {e}")
-            return
-        delisting = [
-            sym for sym in list(_nfes_state.get("positions", {}))
-            if not markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("active", True)
-            or markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("info", {}).get("status") == "SETTLING"
-        ]
-        for sym in delisting:
-            pos = _nfes_state.get("positions", {}).get(sym)
-            if not pos:
-                continue
-            pnl = pos.get("unrealized_pnl", 0)
-            _record_close(sym, "auto_close_delisting", pnl)
-            msg = (f"⚠️ <b>{sym}</b> 合約下架中（SETTLING）\n"
-                   f"已自動結算 | 方向:{pos.get('side','')} | 進場:{pos.get('entry_px',0):.6g}\n"
-                   f"模擬損益: <b>{pnl:+.2f} USDT</b> | 保證金已釋放")
-            try:
-                tg(msg)
-            except Exception:
-                pass
-            log.warning(f"[下架偵測] {sym} 已自動平倉，pnl={pnl:+.2f}")
-        _save_state()
-
     while True:
         try:
-            # 每次掃描前先偵測持倉中下架幣種
-            _check_delisting(exch)
-
             # 取 Top N 幣種掃描新訊號
             try:
                 symbols = get_top_symbols(exch)

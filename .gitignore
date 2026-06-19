@@ -1,7 +1,74 @@
+# 環境與私鑰
 .env
+*.key
+*.secret
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# 日誌
 *.log
+*.log.*
+
+# 狀態檔（含私人交易記錄）
 *_state.json
-*.csv
+*_state.json.bak*
+nfes_bar_ts.json
+nfes_bot_state.json*
+ema99_bot_state.json*
+phantom_knowledge.json
+equity_daily.json
+state.json
+
+# 圖表與截圖
 *.png
+*.jpg
+*.csv
+position_charts/
+sam_99/position_charts/
+
+# 報告 PDF
+*.pdf
+reports/
+sam_99/brain/daily_reports/
+sam_99/brain/reflections/
+sam_99/brain/sams_brain_reflections/
+
+# 私人 AI 大腦資料（含交易思考日誌、私人知識）
+sam_99/brain/sams_thinking_log.json
+sam_99/brain/sams_brain_trades.json
+sam_99/brain/key_level_db.json
+sam_99/brain/pattern_visual_rules.json
+sam_99/brain/intraday_rules_raw.json
+sam_99/brain/pattern_learner_progress.json
+sam_99/brain/sam_soul_export_*.json
+sam_99/brain/2140_charts/
+sam_99/brain/backtest_300_trades.json
+sam_99/brain/backtest_results.json
+
+# Lock 與 PID
+*.lock
+*.pid
+
+# 備份
+backup_*/
+*.bak*
+
+# macOS
+.DS_Store
+*/.DS_Store
+
+# 套件與執行檔
+TradingPack_v1.0.pkg
+ngrok
+
+# 其他資料目錄
+trading_research/
+tradingview/
+hcq/
+電話/
+
+# 週報紀錄
+weekly_review_*.json

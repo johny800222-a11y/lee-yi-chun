@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SMA99 + BB Squeeze V5 — 自動交易 Bot
+EMA99 + BB Squeeze V3 — 自動交易 Bot
 ─────────────────────────────────────────────────────────────
 功能：
   ‧ 每小時掃描 Top100 USDT 永續合約
@@ -52,14 +52,14 @@ TG_TOKEN       = os.getenv("TELEGRAM_BOT_TOKEN", "8005879844:AAG8DJoaphzsweVmdvM
 TG_CHAT_ID     = os.getenv("TELEGRAM_CHAT_ID",   "1768177615")
 
 # ── 掃描間隔 ─────────────────────────────────────────────────────
-SCAN_INTERVAL_SEC  = 90        # 每 1.5 分鐘掃一次
+SCAN_INTERVAL_SEC  = 1 * 60    # 每 1 分鐘掃一次
 STATUS_INTERVAL_HR = 1         # 每幾小時發一次狀態報告
 
 # ── 策略參數 ────────────────────────────────────────────────────
 INITIAL_CAPITAL = 10_000
 MAX_POS_PCT     = 0.10
-MAX_OPEN_POS    = 5       # SMA99 自身上限（共用總上限 10 由 shared_capital 管理）
-TOP_N           = 200                 # 市值前200（90秒間隔上限）
+MAX_OPEN_POS    = 5       # EMA99 自身上限（共用總上限 10 由 shared_capital 管理）
+TOP_N           = 100
 
 EMA_N           = 99
 BB_N, BB_STD    = 20, 2.0
@@ -68,11 +68,11 @@ WASHOUT_BARS    = 2
 SLOPE_LOOKBACK  = 3
 
 # ── 兩段式突破（Option B，2026-05 v1.2）─────────────────────────
-# 第一次突破 SMA99 → 回落 → 第二次突破 SMA99 + BB中軌 才進場
+# 第一次突破 EMA99 → 回落 → 第二次突破 EMA99 + BB中軌 才進場
 # TWO_STAGE_WINDOW：第一次突破後最多幾根15m K棒內第二次突破才算有效
-TWO_STAGE_WINDOW = 8    # 8×15m = 2 小時內（v5 放寬，讓兩段式有更多時間形成）
+TWO_STAGE_WINDOW = 4    # 4×15m = 1 小時內
 
-# ── 盈虧比強化（2026-05 v2.0）───────────────────────────────────
+# ── 盈虧比強化（2026-05 v1.3）───────────────────────────────────
 # ① 進場前 R/R 過濾：(TP - entry) / (entry - SL) 必須 ≥ MIN_ENTRY_RR
 MIN_ENTRY_RR    = 1.5
 # ② ATR 封頂止損：SL 距離最多 MAX_SL_ATR × ATR，避免寬 SL 大虧
@@ -81,26 +81,11 @@ MAX_SL_ATR      = 2.0
 # ── BTC SMA200 宏觀過濾（2026-05 v1.2）──────────────────────────
 # BTC 收盤 > SMA200 → 牛市，只做多；BTC < SMA200 → 熊市，暫停多單
 BTC_SMA_LEN     = 200
-MIN_TP_DIST     = 0.008  # BB 上軌距進場至少 0.8%
-COOLDOWN_HOURS  = 1      # 出場後同一幣冷卻 1 小時
+MIN_TP_DIST     = 0.008  # BB 上軌距進場至少 0.8%（日內放寬）
+COOLDOWN_HOURS  = 1      # 出場後同一幣冷卻 1 小時才可再進場（日內）
 BREAKEVEN_PCT   = 0.02
 TRAIL_ATR_MULT  = 1.2
 TAKER_FEE       = 0.0005
-
-# ── v2 強化：ATR 備用止盈（BB壓縮時不再封鎖空單）────────────────
-# 當 BB 下軌太近（TP_TOO_CLOSE），改用 ATR 倍數計算止盈
-# ATR_TP_MULT：空單 TP = entry - ATR × ATR_TP_MULT
-ATR_TP_MULT     = 1.8   # 空單 ATR 備用止盈倍數（R/R ≈ 1.5 時進場）
-ATR_TP_ENABLE   = True  # 開啟 ATR 備用止盈
-
-# ── v2 強化：SMA99 斜率過濾（空單需均線向下）────────────────────
-EMA_SLOPE_BARS  = 5      # 用前 N 根判斷 SMA99 斜率
-SHORT_EMA_SLOPE_THRESHOLD = -0.00005  # SMA99 每根K棒跌幅（v5.2: -0.0002→-0.00005，放寬4倍，昨天斜率多在-0.0001左右被誤擋）
-
-# ── BB 進場區間設定 ─────────────────────────────────────────
-BB_UPPER_BLOCK  = 0.92   # 價格超過 BB_lower + (BB_upper-BB_lower)*此比例 → 視為近上緣，跳過（v5: 85%→92%）
-#   = 0.92 表示：下緣到上緣的 92% 以上才擋，比 0.85 更寬鬆
-#   效果：BB 下緣~上緣 92% 區間都可進，只有真正貼近上緣才擋
 
 # ── 強化參數（2026-05 月度檢討新增）──────────────────────────
 VOL_MA_N        = 20     # 成交量均線長度
@@ -245,11 +230,11 @@ class Telegram:
             f"可用資金：{capital:.2f} USDT",
             f"未實現盈虧：{total_upnl:+.2f} USDT",
             f"淨值：{total:.2f}  <i>({ret:+.1f}%)</i>",
-            f"持倉：{total_pos_count} 倉（SMA99: {len(positions)}／NFES: {len(nfes_pos)}）",
+            f"持倉：{total_pos_count} 倉（EMA99: {len(positions)}／NFES: {len(nfes_pos)}）",
         ]
-        # SMA99 持倉明細
+        # EMA99 持倉明細
         if positions:
-            lines.append("─ SMA99 持倉 ─")
+            lines.append("─ EMA99 持倉 ─")
             for sym, p in positions.items():
                 side_icon = "🟢" if p.get("side", "long") == "long" else "🔴"
                 if p.get("side", "long") == "long":
@@ -386,10 +371,6 @@ def get_exchange() -> ccxt.binanceusdm:
         "apiKey"         : BINANCE_KEY,
         "secret"         : BINANCE_SECRET,
         "enableRateLimit": True,
-        "options"        : {
-            "defaultType"    : "future",
-            "fetchCurrencies": False,   # 禁止呼叫現貨 sapi/v1/capital/config/getall
-        },
     })
 
 
@@ -406,70 +387,17 @@ def fetch_ohlcv(exch, symbol: str, tf: str, limit: int = 300) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-# ── CoinGecko 市值排名快取（每小時更新一次）────────────────────
-_mcap_cache: dict = {"ranks": {}, "ts": 0}
-
-def _get_mcap_ranks(top_n: int = 300) -> dict:
-    """從 CoinGecko 取市值排名，回傳 {symbol_upper: rank}，快取 1 小時"""
-    now = time.time()
-    if _mcap_cache["ranks"] and now - _mcap_cache["ts"] < 3600:
-        return _mcap_cache["ranks"]
-    ranks = {}
-    try:
-        per_page = 250
-        pages = (top_n + per_page - 1) // per_page
-        for page in range(1, pages + 1):
-            r = requests.get(
-                "https://api.coingecko.com/api/v3/coins/markets",
-                params={
-                    "vs_currency": "usd",
-                    "order": "market_cap_desc",
-                    "per_page": per_page,
-                    "page": page,
-                    "sparkline": False,
-                },
-                timeout=10,
-            )
-            if not r.ok:
-                break
-            for c in r.json():
-                ranks[c["symbol"].upper()] = c["market_cap_rank"] or 9999
-        _mcap_cache["ranks"] = ranks
-        _mcap_cache["ts"] = now
-        log.info(f"[MCAP] CoinGecko 市值排名更新，共 {len(ranks)} 筆")
-    except Exception as e:
-        log.warning(f"[MCAP] CoinGecko 取得失敗，沿用快取：{e}")
-    return _mcap_cache["ranks"]
-
-
 def get_top_symbols(exch, n: int) -> list[str]:
-    """依市值排名取前 N 支 Binance USDT 永續合約（排除上架未滿30天）"""
-    from datetime import datetime, timezone, timedelta
     exch.load_markets()
-    one_month_ago = datetime.now(timezone.utc) - timedelta(days=30)
-
-    # 取得市值排名（快取 1 小時）
-    mcap_ranks = _get_mcap_ranks(top_n=1000)  # 全市場模式
-
-    # 建立 Binance 合約清單，過濾上架未滿30天
-    valid_syms = []
-    for sym, mkt in exch.markets.items():
-        if not sym.endswith("/USDT:USDT"):
-            continue
-        listed = mkt.get("info", {}).get("onboardDate")
-        if listed:
-            listed_dt = datetime.fromtimestamp(int(listed) / 1000, tz=timezone.utc)
-            if listed_dt > one_month_ago:
-                continue  # 排除剛上架
-        base = sym.split("/")[0]
-        rank = mcap_ranks.get(base, 9999)
-        valid_syms.append((sym, rank))
-
-    # 按市值排名排序，取前 N
-    valid_syms.sort(key=lambda x: x[1])
-    result = [s[0] for s in valid_syms[:n]]
-    log.info(f"[MCAP] 掃描清單：前 {n} 支（市值排名）共 {len(result)} 支")
-    return result
+    # 只拉 USDT 永續合約，減少請求量
+    tickers = exch.fetch_tickers(params={"type": "future"})
+    cands = [
+        (sym, float(t.get("quoteVolume") or 0))
+        for sym, t in tickers.items()
+        if sym.endswith("/USDT:USDT") and float(t.get("quoteVolume") or 0) > 0
+    ]
+    cands.sort(key=lambda x: x[1], reverse=True)
+    return [c[0] for c in cands[:n]]
 
 
 def get_current_price(exch, symbol: str) -> float:
@@ -533,26 +461,6 @@ def add_4h_ind(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _adx(hi: pd.Series, lo: pd.Series, cl: pd.Series, n: int = 14) -> pd.Series:
-    """計算 ADX（趨勢強度，0~100，>25 視為趨勢明確）"""
-    tr = pd.concat([hi - lo,
-                    (hi - cl.shift()).abs(),
-                    (lo - cl.shift()).abs()], axis=1).max(axis=1)
-    atr = tr.ewm(span=n, adjust=False).mean()
-    dm_p = (hi - hi.shift()).clip(lower=0)
-    dm_m = (lo.shift() - lo).clip(lower=0)
-    dm_p = dm_p.where(dm_p > dm_m, 0)
-    dm_m = dm_m.where(dm_m > dm_p, 0)
-    di_p = 100 * dm_p.ewm(span=n, adjust=False).mean() / atr.replace(0, np.nan)
-    di_m = 100 * dm_m.ewm(span=n, adjust=False).mean() / atr.replace(0, np.nan)
-    dx   = (100 * (di_p - di_m).abs() / (di_p + di_m).replace(0, np.nan)).fillna(0)
-    return dx.ewm(span=n, adjust=False).mean()
-
-
-ADX_PERIOD    = 14    # ADX 計算週期
-ADX_THRESHOLD = 15    # ADX 門檻（v5: 20→15，捕捉橫盤邊緣趨勢，15 以下才視為真正無趨勢）
-
-
 def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["sma"]    = _sma(df["close"], EMA_N)
@@ -561,8 +469,7 @@ def add_1h_ind(df: pd.DataFrame) -> pd.DataFrame:
     df["bb_m"]   = bb_m
     df["bb_l"]   = bb_l
     df["atr"]    = _atr(df["high"], df["low"], df["close"], ATR_N)
-    df["vol_ma"] = df["volume"].rolling(VOL_MA_N).mean()
-    df["adx"]    = _adx(df["high"], df["low"], df["close"], ADX_PERIOD)
+    df["vol_ma"] = df["volume"].rolling(VOL_MA_N).mean()   # 成交量均線
     return df
 
 
@@ -612,9 +519,9 @@ def _4h_ok_short(d4: pd.DataFrame) -> bool:
 def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
     """
     兩段式突破進場（v1.2 Option B）：
-    ① 第一次突破 SMA99（某根K棒由下往上穿越）
-    ② 回落（至少 1 根K棒收回 SMA99 以下）
-    ③ 第二次突破 SMA99 + BB 中軌（當根進場），
+    ① 第一次突破 EMA99（某根K棒由下往上穿越）
+    ② 回落（至少 1 根K棒收回 EMA99 以下）
+    ③ 第二次突破 EMA99 + BB 中軌（當根進場），
        且步驟①→③ 需在 TWO_STAGE_WINDOW 根K棒以內完成
     ④ 量能確認：突破K棒成交量 > VOL_MA × VOL_MULT
     """
@@ -627,26 +534,14 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
     # ── 當根：第二次突破條件 ──────────────────────────────────
     if bar["close"] <= bar["sma"]:
         return None
-    # 前根必須在 SMA99 以下（確認是穿越，非高位震盪）
-    if prev["close"] > prev["sma"]:
-        return None
-    # BB 中軌確認（v5 補回 5/12 精神）：突破 SMA99 同時需突破 BB 中軌，動能確認
     if bar["close"] <= bar["bb_m"]:
         return None
-    # BB 上緣過濾：價格貼近 BB 上緣 → 追高風險，跳過
-    bb_range = bar["bb_u"] - bar["bb_l"]
-    bb_pos   = (bar["close"] - bar["bb_l"]) / bb_range if bb_range > 0 else 0
-    if bb_pos >= BB_UPPER_BLOCK:
-        log.info(f"[BB_FILTER] long 跳過：價格在 BB {bb_pos:.0%} 位置，貼近上緣（門檻 {BB_UPPER_BLOCK:.0%}）")
-        return None
-    # ADX 趨勢強度確認（過濾橫盤假突破）
-    adx_val = bar.get("adx", 0)
-    if adx_val < ADX_THRESHOLD:
-        log.info(f"[ADX_FILTER] long 跳過：ADX={adx_val:.1f} < {ADX_THRESHOLD}（趨勢不夠強）")
+    # 前根必須在 EMA99 以下（確認是穿越，非高位震盪）
+    if prev["close"] > prev["sma"]:
         return None
 
     # ── 尋找第一次突破 ────────────────────────────────────────
-    # 在前 TWO_STAGE_WINDOW+1 根K棒中找「由下向上穿越 SMA99」的那根
+    # 在前 TWO_STAGE_WINDOW+1 根K棒中找「由下向上穿越 EMA99」的那根
     # 條件：bar_k 前一根 ≤ EMA，bar_k > EMA
     # 回落確認：prev（idx-1）已驗證 ≤ EMA，代表穿越後曾回落，自動成立
     found_first = False
@@ -683,63 +578,38 @@ def _entry_signal(d1: pd.DataFrame) -> Optional[dict]:
 
 def _entry_signal_short(d1: pd.DataFrame) -> Optional[dict]:
     """
-    空單進場訊號（兩段式，v5.1 對稱多單邏輯）：
-    ① 在前 TWO_STAGE_WINDOW 根K棒內找到「由上往下穿越 SMA99」的第一次跌破
-    ② 前根收盤 >= SMA99（確認曾反彈回 SMA99 上方或 SMA99 附近）
-    ③ 當根收盤 < SMA99 且 < BB 中軌（第二次跌破，觸發進場）
-    ④ 量能確認 + ADX + SMA99 斜率
-    → 解決「持續下跌時 prev 永遠在 SMA99 下方導致空單不觸發」問題
+    空單進場訊號（_entry_signal 的鏡像）：
+    ‧ 前根收盤 > EMA99（剛在上方）
+    ‧ 當根收盤 < EMA99 且 < BB 中軌
+    ‧ 前 WASHOUT_BARS 根收盤皆 > EMA99（高位洗盤後翻空）
+    ‧ 量能確認
     """
     idx = len(d1) - 1
-    if idx < EMA_N + BB_N + TWO_STAGE_WINDOW + 6:
+    if idx < EMA_N + BB_N + WASHOUT_BARS + 5:
         return None
     bar  = d1.iloc[idx]
     prev = d1.iloc[idx - 1]
 
-    # ── 當根：第二次跌破條件 ──────────────────────────────────
     if bar["close"] >= bar["sma"]:
         return None
     if bar["close"] >= bar["bb_m"]:
         return None
-    # 前根必須在 SMA99 上方（確認是穿越，非持續下跌）
     if prev["close"] < prev["sma"]:
         return None
 
-    # ── 尋找第一次跌破 ────────────────────────────────────────
-    # 在前 TWO_STAGE_WINDOW+1 根K棒中找「由上向下穿越 SMA99」的那根
-    found_first = False
-    for k in range(2, TWO_STAGE_WINDOW + 2):
-        if idx - k - 1 < 0:
+    # 連續高位 K 棒計數
+    consec = 0
+    for k in range(1, idx + 1):
+        if d1.iloc[idx - k]["close"] >= d1.iloc[idx - k]["sma"]:
+            consec += 1
+        else:
             break
-        bar_k      = d1.iloc[idx - k]
-        bar_k_prev = d1.iloc[idx - k - 1]
-        if (bar_k_prev["close"] >= bar_k_prev["sma"] and
-                bar_k["close"] < bar_k["sma"]):
-            found_first = True
-            break
-
-    if not found_first:
+    if consec < WASHOUT_BARS:
         return None
 
     # 量能確認
     vol_ma = bar.get("vol_ma", 0)
     if vol_ma > 0 and bar["volume"] < vol_ma * VOL_MULT:
-        return None
-
-    # ── v2：SMA99 斜率確認（空單需均線向下）────────────────────
-    if idx >= EMA_SLOPE_BARS:
-        sma_now  = d1.iloc[idx]["sma"]
-        sma_prev = d1.iloc[idx - EMA_SLOPE_BARS]["sma"]
-        if sma_prev > 0:
-            slope = (sma_now - sma_prev) / sma_prev / EMA_SLOPE_BARS
-            if slope > SHORT_EMA_SLOPE_THRESHOLD:
-                log.info(f"[SLOPE_FILTER] short 跳過：SMA99 斜率={slope:.5f} > {SHORT_EMA_SLOPE_THRESHOLD}（均線未向下）")
-                return None
-
-    # ADX 趨勢強度確認
-    adx_val = bar.get("adx", 0)
-    if adx_val < ADX_THRESHOLD:
-        log.info(f"[ADX_FILTER] short 跳過：ADX={adx_val:.1f} < {ADX_THRESHOLD}（趨勢不夠強）")
         return None
 
     entry_px = bar["close"]
@@ -758,8 +628,8 @@ def _entry_signal_short(d1: pd.DataFrame) -> Optional[dict]:
 def _watchlist_check(d1: pd.DataFrame) -> Optional[dict]:
     """
     觀察名單條件（滿足洗盤，但尚未完整觸發進場訊號）：
-    A：價格在 SMA99 下方 ≤2%，洗盤根數 ≥ WASHOUT_BARS → 即將突破
-    B：已突破 SMA99（≤10根），但仍在 BB 中軌下方 → 突破中待確認
+    A：價格在 EMA99 下方 ≤2%，洗盤根數 ≥ WASHOUT_BARS → 即將突破
+    B：已突破 EMA99（≤10根），但仍在 BB 中軌下方 → 突破中待確認
     """
     CROSS_MAX_BARS = 10   # State B：突破後超過此根數不納入觀察
 
@@ -799,7 +669,7 @@ def _watchlist_check(d1: pd.DataFrame) -> Optional[dict]:
         return None
 
     # ── State B：二次突破警報 ────────────────────────────────────
-    # 條件：當前根剛穿越 SMA99（二次突破），且此次穿越前有
+    # 條件：當前根剛穿越 EMA99（二次突破），且此次穿越前有
     #       「第一次穿越 → 回落至 EMA 下方（≤5根）→ 再次穿越」的完整形態
     PULLBACK_MAX = 5   # 回落期最多幾根K棒
     if cl > ema and d1.iloc[idx - 1]["close"] <= d1.iloc[idx - 1]["sma"]:
@@ -1070,7 +940,7 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
                  and capital >= 50
                  and not drawdown_tripped)
     if not can_enter and not drawdown_tripped:
-        log.info(f"持倉已滿，只掃描觀察名單（SMA99:{len(positions)}/5  合計:{total_pos}/10）")
+        log.info(f"持倉已滿，只掃描觀察名單（EMA99:{len(positions)}/5  合計:{total_pos}/10）")
 
     watchlist: list[dict] = []
 
@@ -1111,36 +981,19 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
                 else:
                     del cooldown_map[sym]
 
-            # ── v2：ATR 備用止盈（BB壓縮時不再封鎖）────────────
-            atr_v   = sig["atr"]
+            # TP 距離過濾
             if direction == "long":
                 tp_ref  = sig["bb_u"]
                 tp_dist = (tp_ref - entry_px) / entry_px
             else:
                 tp_ref  = sig["bb_l"]
                 tp_dist = (entry_px - tp_ref) / entry_px
-
             if tp_dist < MIN_TP_DIST:
-                if ATR_TP_ENABLE and direction == "short":
-                    # BB 下軌太近 → 改用 ATR 計算備用止盈
-                    sl_dist    = abs(sig["sl"] - entry_px)
-                    atr_tp     = entry_px - atr_v * ATR_TP_MULT
-                    atr_tp_dist = (entry_px - atr_tp) / entry_px
-                    atr_rr     = atr_tp_dist / (sl_dist / entry_px) if sl_dist > 0 else 0
-                    if atr_tp_dist >= MIN_TP_DIST and atr_rr >= MIN_ENTRY_RR:
-                        sig = dict(sig)
-                        sig["bb_l"] = atr_tp
-                        tp_ref  = atr_tp
-                        tp_dist = atr_tp_dist
-                        log.info(f"ATR_TP {sym} short  BB下軌太近({sig.get('bb_l',0):.4f})，改用ATR止盈={atr_tp:.4f} RR={atr_rr:.2f}")
-                    else:
-                        log.info(f"TP_TOO_CLOSE {sym} {direction}  距離 {tp_dist*100:.1f}%，ATR備用RR={atr_rr:.2f}不足，跳過")
-                        continue
-                else:
-                    log.info(f"TP_TOO_CLOSE {sym} {direction}  距離 {tp_dist*100:.1f}%，跳過")
-                    continue
+                log.info(f"TP_TOO_CLOSE {sym} {direction}  距離 {tp_dist*100:.1f}%，跳過")
+                continue
 
             # ── 執行進場 ──────────────────────────────────
+            atr_v   = sig["atr"]
             atr_pct = atr_v / entry_px if entry_px > 0 else 0.05
             lev = 3 if atr_pct < 0.025 else (2 if atr_pct < 0.04 else 1)
 
@@ -1241,7 +1094,7 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
 
     if new_items:
         log.info(f"觀察名單新增 {len(new_items)} 個: {[w['sym'].split('/')[0] for w in new_items]}")
-        # tg.on_watchlist(new_items, PAPER_MODE)  # 已關閉：訊號過多，2026-06-07
+        tg.on_watchlist(new_items, PAPER_MODE)
     else:
         log.info(f"觀察名單無新增（目前追蹤 {len(current_syms)} 個）")
 
@@ -1287,7 +1140,6 @@ def _trade_record(sym: str, pos: dict, exit_px: float,
                   net: float, reason: str, ts) -> dict:
     return {
         "sym"      : sym,
-        "side"     : pos.get("side", "long"),
         "entry_px" : pos["entry_px"],
         "exit_px"  : exit_px,
         "pnl"      : net,
@@ -1367,7 +1219,7 @@ def _cmd_listener(tg: "Telegram") -> None:
                     else:
                         lines = ["📋 <b>目前持倉（全策略合計）</b>"]
                         if positions:
-                            lines.append("\n🔷 <b>SMA99 Bot</b>")
+                            lines.append("\n🔷 <b>EMA99 Bot</b>")
                             for sym, p in positions.items():
                                 cur  = p.get("cur_px", p["entry_px"])
                                 side = p.get("side", "long")
@@ -1401,20 +1253,18 @@ def _cmd_listener(tg: "Telegram") -> None:
                         tg.send("\n".join(lines))
 
                 elif text in ("/盈虧", "/pnl"):
-                    # SMA99
+                    # EMA99
                     trades_e   = state.get("trades", [])
                     realized_e = sum(t["pnl"] for t in trades_e)
                     open_e     = sum(_pos_upnl(p) for p in positions.values())
-                    # NFES — 用 total_realized_pnl 欄位（累計精準值，不受 500 筆上限影響）
+                    # NFES
                     trades_n   = nfes_state.get("trades", [])
-                    realized_n = nfes_state.get("total_realized_pnl",
-                                     sum(t.get("pnl", 0) for t in trades_n))
-                    nfes_total_t = nfes_state.get("total_trades", len(trades_n))
+                    realized_n = sum(t["pnl"] for t in trades_n)
                     open_n     = sum(_pos_upnl(p) for p in nfes_positions.values())
                     # 合計
                     realized_all = realized_e + realized_n
                     open_all     = open_e + open_n
-                    capital_all  = capital          # 共用池只有一個，就是 SMA99 capital
+                    capital_all  = capital + nfes_capital
                     total_all    = capital_all + open_all
                     ret_all      = (total_all - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100 if INITIAL_CAPITAL else 0
                     tg.send(
@@ -1423,10 +1273,10 @@ def _cmd_listener(tg: "Telegram") -> None:
                         f"未實現：{open_all:+.2f} USDT\n"
                         f"可用資金：{capital_all:.2f} USDT\n"
                         f"淨值：{total_all:.2f} USDT  <i>({ret_all:+.1f}%)</i>\n"
-                        f"交易次數：{len(trades_e)+nfes_total_t}  "
-                        f"（SMA99:{len(trades_e)} / NFES:{nfes_total_t}）\n"
+                        f"交易次數：{len(trades_e)+len(trades_n)}  "
+                        f"（EMA99:{len(trades_e)} / NFES:{len(trades_n)}）\n"
                         f"─\n"
-                        f"🔷 SMA99  已實現 {realized_e:+.2f}  未實現 {open_e:+.2f}  持倉 {len(positions)}\n"
+                        f"🔷 EMA99  已實現 {realized_e:+.2f}  未實現 {open_e:+.2f}  持倉 {len(positions)}\n"
                         f"🔶 NFES   已實現 {realized_n:+.2f}  未實現 {open_n:+.2f}  持倉 {len(nfes_positions)}"
                     )
 
@@ -1434,7 +1284,7 @@ def _cmd_listener(tg: "Telegram") -> None:
                     open_e   = sum(_pos_upnl(p) for p in positions.values())
                     open_n   = sum(_pos_upnl(p) for p in nfes_positions.values())
                     open_all = open_e + open_n
-                    cap_all  = capital  # 共用池，NFES capital 固定為 0
+                    cap_all  = capital + nfes_capital
                     total_all = cap_all + open_all
                     ret_all   = (total_all - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100 if INITIAL_CAPITAL else 0
                     mode      = "📄 虛擬盤" if PAPER_MODE else "🔴 實盤"
@@ -1447,7 +1297,7 @@ def _cmd_listener(tg: "Telegram") -> None:
                         f"持倉：{len(positions)+len(nfes_positions)} 倉",
                     ]
                     if positions:
-                        lines.append("─ 🔷 SMA99 ─")
+                        lines.append("─ 🔷 EMA99 ─")
                         for sym, p in positions.items():
                             side_icon = "🟢" if p.get("side","long") == "long" else "🔴"
                             pct = _pos_upnl(p) / p["notional"] * 100
@@ -1532,7 +1382,7 @@ def _cmd_listener(tg: "Telegram") -> None:
                             f"\n— — —\n"
                             f"總實現：{realized:+.2f} USDT\n"
                             f"勝率：{wr:.1f}% ({wins}/{len(all_trades)})  "
-                            f"（🔷SMA99:{len(trades_e)} / 🔶NFES:{len(trades_n)}）"
+                            f"（🔷EMA99:{len(trades_e)} / 🔶NFES:{len(trades_n)}）"
                         )
                         tg.send("\n".join(lines))
 
@@ -1577,7 +1427,7 @@ def main() -> None:
     tg.on_start(PAPER_MODE)
     log.info("=" * 60)
     log.info(f"  SMA99 Bot 啟動  PAPER={PAPER_MODE}")
-    log.info(f"  掃描間隔：{SCAN_INTERVAL_SEC} 秒")
+    log.info(f"  掃描間隔：{SCAN_INTERVAL_SEC // 60} 分鐘")
     log.info(f"  capital={state['capital']:.2f}  pos={len(state['positions'])}")
     log.info("=" * 60)
 

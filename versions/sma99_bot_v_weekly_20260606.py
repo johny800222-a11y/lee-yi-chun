@@ -386,10 +386,6 @@ def get_exchange() -> ccxt.binanceusdm:
         "apiKey"         : BINANCE_KEY,
         "secret"         : BINANCE_SECRET,
         "enableRateLimit": True,
-        "options"        : {
-            "defaultType"    : "future",
-            "fetchCurrencies": False,   # 禁止呼叫現貨 sapi/v1/capital/config/getall
-        },
     })
 
 
@@ -1241,7 +1237,7 @@ def run_once(exch, tg: Telegram, state: dict, send_status: bool = False) -> None
 
     if new_items:
         log.info(f"觀察名單新增 {len(new_items)} 個: {[w['sym'].split('/')[0] for w in new_items]}")
-        # tg.on_watchlist(new_items, PAPER_MODE)  # 已關閉：訊號過多，2026-06-07
+        tg.on_watchlist(new_items, PAPER_MODE)
     else:
         log.info(f"觀察名單無新增（目前追蹤 {len(current_syms)} 個）")
 

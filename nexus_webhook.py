@@ -159,17 +159,11 @@ def _get_nfes_capital() -> float:
 
 def calc_trade_params(signal: str) -> tuple[float, int]:
     """
-    依訊號強度與當前資金計算 (margin_usdt, leverage)。
-    margin = min(total_capital × MAX_RISK_PCT, total_capital × MAX_RISK_PCT) 取整數
-    leverage = 依 SIGNAL_LEVERAGE 對照表
+    依訊號強度與共用資金池計算 (margin_usdt, leverage)。
+    回傳 (0, 0) 表示已達倉位上限且非強訊號，不可開倉。
     """
-    capital  = _get_nfes_capital()
-    margin   = round(capital * MAX_RISK_PCT, 2)   # 總資金 10%
-    margin   = max(margin, 10.0)                   # 最低 10 USDT
-    lev      = SIGNAL_LEVERAGE.get(signal, DEFAULT_LEVERAGE)
-    log.info(f"calc_trade_params  signal={signal!r}  capital={capital:.2f}  "
-             f"margin={margin:.2f}  lev={lev}x")
-    return margin, lev
+    from shared_capital import calc_margin
+    return calc_margin(signal)
 
 
 # ═══════════════════════════════════════════════════════════════

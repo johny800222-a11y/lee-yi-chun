@@ -431,18 +431,13 @@ def detect_signals(ohlcv_4h: list, ohlcv_d: list) -> dict | None:
         tp3 = _smart_round(close_now + sl_dist * TP3_R)
     else:
         sl  = _smart_round(close_now + sl_dist)
-        tp1 = _smart_round(max(close_now - sl_dist * TP1_R, close_now * 0.01))
-        tp2 = _smart_round(max(close_now - sl_dist * TP2_R, close_now * 0.005))
-        tp3 = _smart_round(max(close_now - sl_dist * TP3_R, close_now * 0.001))
+        tp1 = _smart_round(close_now - sl_dist * TP1_R)
+        tp2 = _smart_round(close_now - sl_dist * TP2_R)
+        tp3 = _smart_round(close_now - sl_dist * TP3_R)
 
-    # 安全檢查：TP/SL 不可為 0 或負數
-    if sl == 0 or tp1 == 0 or tp3 == 0 or tp1 <= 0 or tp3 <= 0:
+    # 安全檢查：TP/SL 不可為 0（避免計算出異常盈虧）
+    if sl == 0 or tp1 == 0 or tp3 == 0:
         log.warning(f"[SIGNAL] {side} 風控計算異常 sl={sl} tp1={tp1} tp3={tp3}，跳過此訊號")
-        return None
-
-    # 空單額外驗證：SL距離不可超過進場價（否則TP會是負數）
-    if side == "short" and sl_dist * TP3_R >= close_now:
-        log.warning(f"[SIGNAL] 空單 ATR過大（sl_dist={sl_dist:.6g} × {TP3_R}R >= entry={close_now:.6g}），跳過")
         return None
 
     bar_ts = ohlcv_4h[i][0]
@@ -553,14 +548,8 @@ def _record_close(sym: str, reason: str, pnl: float = 0.0):
             "strategy": STRATEGY_NAME,
             "side"    : pos.get("side", ""),
             "entry_px": pos.get("entry_px", 0),
-            "exit_px" : pos.get("cur_px", 0),
-            "tp1"     : pos.get("tp1"),
-            "tp2"     : pos.get("tp2"),
-            "tp3"     : pos.get("tp3"),
-            "sl"      : pos.get("sl"),
             "pnl"     : pnl_rounded,
             "reason"  : reason,
-            "entry_ts": pos.get("entry_ts", ""),
             "exit_ts" : datetime.now(timezone.utc).isoformat(),
         })
         # 累計盈虧獨立追蹤（不受 trade 筆數上限影響）
@@ -857,7 +846,7 @@ def main():
     exch = ccxt.binanceusdm({
         "apiKey"         : os.getenv("BINANCE_API_KEY",    ""),
         "secret"         : os.getenv("BINANCE_API_SECRET", ""),
-        "options"        : {"defaultType": "future", "fetchCurrencies": False},
+        "options"        : {"defaultType": "future"},
         "enableRateLimit": True,
     })
 
@@ -892,39 +881,8 @@ def main():
         except Exception as _e:
             log.warning(f"儲存 bar_ts 失敗: {_e}")
 
-    def _check_delisting(exch_obj):
-        """偵測持倉中即將下架（SETTLING/active=False）的幣種，自動平倉並歸還資金"""
-        try:
-            markets = exch_obj.load_markets(reload=True)
-        except Exception as e:
-            log.warning(f"[下架偵測] load_markets 失敗: {e}")
-            return
-        delisting = [
-            sym for sym in list(_nfes_state.get("positions", {}))
-            if not markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("active", True)
-            or markets.get(sym.replace("USDT", "") + "/USDT:USDT", {}).get("info", {}).get("status") == "SETTLING"
-        ]
-        for sym in delisting:
-            pos = _nfes_state.get("positions", {}).get(sym)
-            if not pos:
-                continue
-            pnl = pos.get("unrealized_pnl", 0)
-            _record_close(sym, "auto_close_delisting", pnl)
-            msg = (f"⚠️ <b>{sym}</b> 合約下架中（SETTLING）\n"
-                   f"已自動結算 | 方向:{pos.get('side','')} | 進場:{pos.get('entry_px',0):.6g}\n"
-                   f"模擬損益: <b>{pnl:+.2f} USDT</b> | 保證金已釋放")
-            try:
-                tg(msg)
-            except Exception:
-                pass
-            log.warning(f"[下架偵測] {sym} 已自動平倉，pnl={pnl:+.2f}")
-        _save_state()
-
     while True:
         try:
-            # 每次掃描前先偵測持倉中下架幣種
-            _check_delisting(exch)
-
             # 取 Top N 幣種掃描新訊號
             try:
                 symbols = get_top_symbols(exch)
