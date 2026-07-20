@@ -864,6 +864,24 @@ def _detect_wm(highs: list, lows: list, closes: list) -> dict:
             }
     return result
 
+def _pattern_target_extension(pat: dict, price: float) -> float | None:
+    """
+    型態頸線→測量目標已完成的比例（0=剛破頸線，1=已達目標）。
+    2026-07-20 週度審計新增：SOL 案例（【W底突破+頭肩底雙重確認】）進場價 77.95
+    已「觸及AB=CD目標區(77.49~77.96)」，LLM 自行承認仍進場，最終停損-1R。
+    測量移動只值得抓一次，價格已吃掉大半段距離時，剩餘空間對風險已不划算。
+    """
+    neck = pat.get("neckline")
+    tgt  = pat.get("target")
+    if neck is None or tgt is None or not price:
+        return None
+    is_bullish = pat.get("pattern") in ("W_bottom", "HS_bottom")
+    span  = (tgt - neck) if is_bullish else (neck - tgt)
+    if not span:
+        return None
+    moved = (price - neck) if is_bullish else (neck - price)
+    return moved / span
+
 def _find_structure(highs: list, lows: list, lookback: int = 20) -> dict:
     """尋找市場結構：近期高點/低點（流動性區域）"""
     recent_h = highs[-lookback:]
@@ -1561,9 +1579,8 @@ def _save_thinking(symbol: str, market: dict, brain_view: str, decision: dict):
             "fake_breakout_up": market.get("fake_breakout_up", False),
             "fake_breakout_down": market.get("fake_breakout_down", False),
         })
-        # 動態容量：從500開始，超過後每次多加500
-        current_limit = max(500, (len(logs) // 500 + 1) * 500)
-        THINKING_FILE.write_text(json.dumps(logs[-current_limit:], ensure_ascii=False, indent=2))
+        # 固定保留最新 500 筆，避免檔案無限膨脹
+        THINKING_FILE.write_text(json.dumps(logs[-500:], ensure_ascii=False, indent=2))
     except Exception as e:
         log.warning(f"[THINKING] 存檔失敗: {e}")
 
@@ -2108,6 +2125,45 @@ leverage：85+低波動→3-5x / 75-84→2-3x / 左側預判→1-2x"""
                 result["approved"] = False
                 result["skip_reason"] = f"量比{market.get('vol_ratio')}過低，量縮不進場"
 
+            # 硬性規則 3：型態目標已達成大半 → 追高不進（2026-07-20 週度審計新增）
+            # SOL 案例：W底目標區已被現價觸及，LLM 用「短線達標後的正常震盪」自圓其說仍進場，結果-1R。
+            # 本週語料（20260620直播）反覆強調「不要急著他拉上去就趕快進」「越往上越危險」，
+            # 用型態自己算出的頸線/目標做客觀判斷，不讓 LLM 用敘述話術繞過。
+            if result.get("approved"):
+                for _pk in ("pattern_wm", "pattern_hs"):
+                    _pat = market.get(_pk, {})
+                    if _pat.get("detected") and _pat.get("breakout"):
+                        _ext = _pattern_target_extension(_pat, market.get("price", 0))
+                        if _ext is not None and _ext >= 0.85:
+                            result["approved"] = False
+                            result["skip_reason"] = (
+                                f"{_pk}目標已完成{_ext:.0%}"
+                                f"（頸線{_pat.get('neckline')}→目標{_pat.get('target')}，"
+                                f"現價{market.get('price')}），追高不進，等回檔或新結構"
+                            )
+                            break
+
+            # 硬性規則 4：4H RSI 過熱/超賣 → 高時間框架訊號不能被理由化繞過（2026-07-20 週度審計新增）
+            # EGLD 案例：4H RSI 71.11 超買，LLM 自行寫出「消化浮籌的健康整理不是出貨」仍進場，結果-0.85R。
+            # 既有規則只鎖 1H RSI（超買>65不追多/超賣<35不追空），但 market snapshot 早已算好 rsi_4h
+            # 並寫進 prompt，只是沒有強制執行——這裡把同一條「超買不追多，超賣不追空」原則延伸到 4H。
+            if result.get("approved"):
+                _rsi4h = market.get("rsi_4h")
+                _side_f = result.get("side", "long")
+                if _rsi4h is not None:
+                    if _rsi4h > 70 and _side_f == "long":
+                        _has_top_evidence = (market.get("rsi_bear_div_continuous") or
+                                              market.get("fake_breakout_up"))
+                        if not _has_top_evidence:
+                            result["approved"] = False
+                            result["skip_reason"] = f"4H RSI過熱({_rsi4h:.1f}>70)，高時間框架超買，不追多（除非有出貨背離證據）"
+                    if _rsi4h < 30 and _side_f == "short":
+                        _has_bottom_evidence = (market.get("rsi_bull_div_continuous") or
+                                                 market.get("fake_breakout_down"))
+                        if not _has_bottom_evidence:
+                            result["approved"] = False
+                            result["skip_reason"] = f"4H RSI超賣({_rsi4h:.1f}<30)，高時間框架超賣，不追空（除非有吸籌背離證據）"
+
             # 軟性警示：vol_ratio = 1.0 疑似資料異常，記錄但不強制擋（Sam自己判斷）
             if market.get("vol_ratio", 1) == 1.0 and result.get("approved"):
                 result["data_warning"] = "量比=1.0，可能是量能資料未正常取得，請Sam納入不確定性考量"
@@ -2504,6 +2560,10 @@ def _close_position(state: dict, close: dict):
     pos     = close["pos"]
     pnl     = close["pnl"]
     outcome = close["outcome"]
+    # 用 total_pnl（含分段獲利）重判 outcome，避免保本止損被算進虧損
+    partial_already = pos.get("partial_pnl", 0)
+    total_pnl_check = pnl + partial_already
+    outcome = "win" if total_pnl_check > 0 else ("breakeven" if abs(total_pnl_check) < 0.05 else "loss")
 
     state["equity"]  = round(state["equity"]  + pnl, 4)
     state["capital"] = round(state["capital"] + pnl, 4)
@@ -2511,6 +2571,8 @@ def _close_position(state: dict, close: dict):
     if outcome == "win":
         state["wins"] += 1
         state["loss_streak"] = 0
+    elif outcome == "breakeven":
+        pass  # 保本不計入連虧
     else:
         state["losses"] += 1
         state["loss_streak"] = state.get("loss_streak", 0) + 1
@@ -2577,10 +2639,12 @@ def _close_position(state: dict, close: dict):
     right  = "主力思維正確，方向與市場一致" if outcome == "win" else "風控執行，保住本金"
     wrong  = "" if outcome == "win" else "需回顧進場時的主力分析是否有誤判"
     lesson = "繼續保持A級訊號紀律" if outcome == "win" else "下次回顧市場結構與主力動向是否一致"
+    # 用 total_pnl 重新判定 outcome，避免分段獲利後保本止損被誤判為虧損
+    final_outcome = "win" if total_pnl > 0 else ("breakeven" if abs(total_pnl) < 0.05 else "loss")
     trade  = {**pos, "exit_px": close["exit_px"], "exit_why": close["exit_why"],
               "pnl": total_pnl,        # ✅ 含分段出場的完整 pnl
               "pnl_r": total_pnl_r,
-              "outcome": outcome,
+              "outcome": final_outcome,
               "equity_after": state["equity"],
               "exited_at": datetime.now(TZ8).isoformat()}
     save_trade(trade)
