@@ -142562,18 +142562,32 @@
         "long_wins": 2,
         "short_sigs": 8,
         "short_wins": 0
+      },
+      {
+        "date": "2026-07-20",
+        "days": 90,
+        "signals": 16,
+        "wins": 2,
+        "losses": 14,
+        "timeouts": 0,
+        "win_rate": 12.5,
+        "avg_r": -0.67,
+        "long_sigs": 9,
+        "long_wins": 2,
+        "short_sigs": 7,
+        "short_wins": 0
       }
     ],
-    "signals": 394,
-    "wins": 55,
-    "losses": 339,
+    "signals": 410,
+    "wins": 57,
+    "losses": 353,
     "timeouts": 0,
-    "long_sigs": 157,
-    "long_wins": 35,
-    "short_sigs": 237,
+    "long_sigs": 166,
+    "long_wins": 37,
+    "short_sigs": 244,
     "short_wins": 20,
-    "cum_win_rate": 14.0,
-    "runs_count": 24
+    "cum_win_rate": 13.9,
+    "runs_count": 25
   },
   "MAGIC": {
     "runs": [
