@@ -302498,18 +302498,32 @@
         "long_wins": 6,
         "short_sigs": 7,
         "short_wins": 1
+      },
+      {
+        "date": "2026-09-01",
+        "days": 90,
+        "signals": 27,
+        "wins": 8,
+        "losses": 19,
+        "timeouts": 0,
+        "win_rate": 29.6,
+        "avg_r": -0.28,
+        "long_sigs": 18,
+        "long_wins": 5,
+        "short_sigs": 9,
+        "short_wins": 3
       }
     ],
-    "signals": 825,
-    "wins": 130,
-    "losses": 694,
+    "signals": 852,
+    "wins": 138,
+    "losses": 713,
     "timeouts": 1,
-    "long_sigs": 553,
-    "long_wins": 119,
-    "short_sigs": 272,
-    "short_wins": 11,
-    "cum_win_rate": 15.8,
-    "runs_count": 48
+    "long_sigs": 571,
+    "long_wins": 124,
+    "short_sigs": 281,
+    "short_wins": 14,
+    "cum_win_rate": 16.2,
+    "runs_count": 49
   },
   "ANIME": {
     "runs": [
@@ -307818,18 +307832,32 @@
         "long_wins": 5,
         "short_sigs": 5,
         "short_wins": 2
+      },
+      {
+        "date": "2026-09-01",
+        "days": 90,
+        "signals": 23,
+        "wins": 8,
+        "losses": 15,
+        "timeouts": 0,
+        "win_rate": 34.8,
+        "avg_r": 0.57,
+        "long_sigs": 17,
+        "long_wins": 5,
+        "short_sigs": 6,
+        "short_wins": 3
       }
     ],
-    "signals": 583,
-    "wins": 163,
-    "losses": 408,
+    "signals": 606,
+    "wins": 171,
+    "losses": 423,
     "timeouts": 12,
-    "long_sigs": 444,
-    "long_wins": 128,
-    "short_sigs": 139,
-    "short_wins": 35,
-    "cum_win_rate": 28.5,
-    "runs_count": 36
+    "long_sigs": 461,
+    "long_wins": 133,
+    "short_sigs": 145,
+    "short_wins": 38,
+    "cum_win_rate": 28.8,
+    "runs_count": 37
   },
   "C": {
     "runs": [
@@ -361309,6 +361337,34 @@
     "short_sigs": 0,
     "short_wins": 0,
     "cum_win_rate": 0,
+    "runs_count": 1
+  },
+  "HEMI": {
+    "runs": [
+      {
+        "date": "2026-09-01",
+        "days": 90,
+        "signals": 29,
+        "wins": 8,
+        "losses": 21,
+        "timeouts": 0,
+        "win_rate": 27.6,
+        "avg_r": -0.18,
+        "long_sigs": 17,
+        "long_wins": 5,
+        "short_sigs": 12,
+        "short_wins": 3
+      }
+    ],
+    "signals": 29,
+    "wins": 8,
+    "losses": 21,
+    "timeouts": 0,
+    "long_sigs": 17,
+    "long_wins": 5,
+    "short_sigs": 12,
+    "short_wins": 3,
+    "cum_win_rate": 27.6,
     "runs_count": 1
   }
 }
