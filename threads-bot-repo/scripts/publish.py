@@ -7,6 +7,8 @@ CONTENT_DIR = Path(__file__).resolve().parent / "content"
 
 HASHTAGS = {"overtime": "#社畜日常 #加班人生 #台北上班族 #下班後", "food": "#台灣美食 #巷弄美食 #在地小吃", "surprise": "#生活小確幸 #日常驚喜 #台灣日常", "weekend": "#週末日常 #台灣生活 #耍廢日常", "workmeltdown": "#職場日常 #上班族日常 #療癒美食", "latenight": "#深夜獨白 #夜貓子 #台灣日常"}
 
+STREET_KEYWORDS = ["taipei,street", "taiwan,alley,street", "taipei,night,street", "taiwan,scooter,street", "taipei,mrt,station", "taiwan,night-market", "taipei,street,rain", "taiwan,convenience-store,night", "taipei,neon,street", "taiwan,old-street", "taipei,crosswalk,street", "taiwan,street,motorcycle", "taipei,alley,lantern", "taiwan,street,market"]
+
 class ThreadsPublishError(Exception): pass
 
 def _raise(msg): raise ThreadsPublishError(msg)
@@ -18,6 +20,24 @@ def get_access_token(): return os.environ.get("THREADS_USER_ACCESS_TOKEN") or _r
 def get_threads_user_id(access_token): return _json_or_raise(requests.get(GRAPH_API_BASE + "/me", params={"fields": "id,username", "access_token": access_token}, timeout=30), "get user info")["id"]
 
 def keyword_image_url(keywords): return "https://loremflickr.com/1080/1080/" + keywords + "?lock=" + str(random.randint(1, 999999))
+
+def taipei_weather_keyword():
+    try:
+        resp = requests.get("https://api.open-meteo.com/v1/forecast", params={"latitude": 25.033, "longitude": 121.5654, "current": "weather_code", "timezone": "Asia/Taipei"}, timeout=10)
+        code = resp.json()["current"]["weather_code"]
+    except Exception:
+        code = None
+    if code is None: return "taiwan,sky"
+    if code == 0: return "taiwan,blue-sky,sunny"
+    if code in (1, 2, 3): return "taiwan,cloudy,sky"
+    if code in (45, 48): return "taiwan,fog,sky"
+    if code in (95, 96, 99): return "taipei,storm,sky"
+    if 51 <= code <= 67 or 80 <= code <= 82: return "taipei,rain,sky"
+    return "taiwan,sky"
+
+def random_image_url():
+    keywords = taipei_weather_keyword() if random.random() < 0.5 else random.choice(STREET_KEYWORDS)
+    return keyword_image_url(keywords)
 
 def create_media_container(user_id, access_token, text, link_attachment=None, image_url=None): return _json_or_raise(requests.post(GRAPH_API_BASE + "/" + user_id + "/threads", params={k: v for k, v in {"text": text, "access_token": access_token, "media_type": "IMAGE" if image_url else "TEXT", "image_url": image_url, "link_attachment": link_attachment}.items() if v is not None}, timeout=30), "create media container")["id"]
 
@@ -39,7 +59,7 @@ daily_item = load_daily_life_item(args.type) if item is None else None
 base_text = item["text"] if item else daily_item["text"]
 text = base_text if item else base_text + "\n\n" + HASHTAGS.get(args.type, "")
 link = item.get("link") if item else None
-image_url = None if (item is not None or args.no_image) else keyword_image_url(daily_item.get("image_keywords") or "taiwan,daily-life")
+image_url = None if (item is not None or args.no_image) else random_image_url()
 
 print("post text:")
 print(text)
