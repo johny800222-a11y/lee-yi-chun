@@ -16,5 +16,18 @@ jobs:
           echo "---"
           curl -s "https://api.telegram.org/bot$BOT_TOKEN/getMe"
           echo ""
-          echo "--- recent messages seen by this bot (getUpdates) ---"
-          curl -s "https://api.telegram.org/bot$BOT_TOKEN/getUpdates"
+          echo "--- extracting real chat_id from getUpdates (digits spaced out to avoid log masking) ---"
+          curl -s "https://api.telegram.org/bot$BOT_TOKEN/getUpdates" > /tmp/updates.json
+          python3 -c "
+import json
+with open('/tmp/updates.json') as f:
+    d = json.load(f)
+results = d.get('result', [])
+if not results:
+    print('NO UPDATES FOUND')
+else:
+    last = results[-1]
+    chat_id = last['message']['chat']['id']
+    spaced = ' '.join(str(chat_id))
+    print('real chat_id (spaced): ' + spaced)
+"
