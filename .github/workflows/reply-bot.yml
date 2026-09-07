@@ -1,0 +1,41 @@
+name: "Threads - Reply Bot"
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r threads-bot-repo/scripts/requirements.txt
+
+      - name: Run reply bot
+        env:
+          THREADS_USER_ACCESS_TOKEN: ${{ secrets.THREADS_USER_ACCESS_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 threads-bot-repo/scripts/reply_bot.py
+
+      - name: Save reply bot state back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add threads-bot-repo/scripts/content/reply_state.json
+          if git diff --staged --quiet; then
+            echo "no state changes"
+          else
+            git commit -m "update reply bot state [skip ci]"
+            git push
+          fi
