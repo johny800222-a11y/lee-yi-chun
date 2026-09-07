@@ -15,3 +15,6 @@ jobs:
           echo ""
           echo "---"
           curl -s "https://api.telegram.org/bot$BOT_TOKEN/getMe"
+          echo ""
+          echo "--- recent messages seen by this bot (getUpdates) ---"
+          curl -s "https://api.telegram.org/bot$BOT_TOKEN/getUpdates"
