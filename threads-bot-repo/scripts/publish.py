@@ -5,7 +5,7 @@ import requests
 GRAPH_API_BASE = "https://graph.threads.net/v1.0"
 CONTENT_DIR = Path(__file__).resolve().parent / "content"
 
-HASHTAGS = {"overtime": "#社畜日常 #加班人生 #台北上班族 #下班後", "food": "#台灣美食 #巷弄美食 #在地小吃", "surprise": "#生活小確幸 #日常驚喜 #台灣日常", "weekend": "#週末日常 #台灣生活 #耍廢日常", "workmeltdown": "#職場日常 #上班族日常 #療癒美食", "latenight": "#深夜獨白 #夜貓子 #台灣日常"}
+HASHTAGS = {"overtime": "#社畜日常 #加班人生 #台北上班族 #下班後", "food": "#台灣美食 #巷弄美食 #在地小吃", "surprise": "#生活小確幸 #日常驚喜 #台灣日常", "weekend": "#週末日常 #台灣生活 #耍廢日常", "workmeltdown": "#職場日常 #上班族日常 #療癒美食", "latenight": "#深夜獨白 #夜貓子 #台灣日常", "growth": "#threads漲粉 #互追不退 #新手經營"}
 
 STREET_KEYWORDS = ["taipei,street", "taiwan,alley,street", "taipei,night,street", "taiwan,scooter,street", "taipei,mrt,station", "taiwan,night-market", "taipei,street,rain", "taiwan,convenience-store,night", "taipei,neon,street", "taiwan,old-street", "taipei,crosswalk,street", "taiwan,street,motorcycle", "taipei,alley,lantern", "taiwan,street,market"]
 
@@ -48,7 +48,7 @@ def load_daily_life_item(post_type): return random.choice(json.loads((CONTENT_DI
 def load_product_item(index): return json.loads((CONTENT_DIR / "product_posts.json").read_text(encoding="utf-8"))[index]
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--type", required=True, choices=["overtime", "food", "surprise", "weekend", "workmeltdown", "latenight", "product"])
+parser.add_argument("--type", required=True, choices=["overtime", "food", "surprise", "weekend", "workmeltdown", "latenight", "growth", "product"])
 parser.add_argument("--index", type=int, default=None)
 parser.add_argument("--dry-run", action="store_true")
 parser.add_argument("--no-image", action="store_true")

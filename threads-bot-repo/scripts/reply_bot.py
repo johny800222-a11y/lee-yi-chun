@@ -11,6 +11,7 @@ Threads 留言自動回覆機器人（阿翔｜宅男阿翔開箱測評）
 這支程式本身不會「自動」把回覆貼上 Threads —— 一定要使用者在 Telegram 按核准才會真的發布。
 """
 import json, os, sys, time
+from datetime import datetime, timezone
 from pathlib import Path
 import requests
 
@@ -23,6 +24,10 @@ STATE_PATH = CONTENT_DIR / "reply_state.json"
 
 MAX_NEW_DRAFTS_PER_RUN = 5
 MAX_RECENT_POSTS = 10
+
+GROWTH_KEYWORDS = ["互追", "海巡", "流量密碼"]
+MAX_GROWTH_PER_DAY = 10
+GROWTH_SEARCH_LIMIT = 10
 
 PERSONA_EXAMPLES = [
     "又加班到十點多\n捷運上整節車廂剩我一個\n這種時間點的月台超級安靜\n只想趕快回家躺平",
@@ -45,15 +50,43 @@ PERSONA_SYSTEM_PROMPT = (
     "6. 只輸出回覆的文字本身，不要加任何說明、引號或前綴"
 )
 
+GROWTH_PERSONA_SYSTEM_PROMPT = (
+    "你是「宅男阿翔｜開箱測評」，一個剛開始經營 Threads、想要漲粉互相認識的台灣上班族人設帳號，"
+    "平常說話走道地台灣口語、親切自然。以下是幾則你平常發文的例子，感受一下語氣：\n\n"
+    + "\n---\n".join(PERSONA_EXAMPLES)
+    + "\n\n現在你看到別人發的一篇貼文，內容跟「互追」「海巡」「漲粉」有關，"
+    "你想在底下留言，跟對方打個招呼、順便讓對方注意到你，之後你會自己手動追蹤對方。"
+    "規則：\n"
+    "1. 一定要用繁體中文、台灣道地口語，不要用中國大陸用語\n"
+    "2. 簡短自然，1 句話就好，像真人隨手留言，不要長篇大論\n"
+    "3. 絕對不要用『已追』『互追不退』這種罐頭式、一看就是機器人的制式留言\n"
+    "4. 針對這篇貼文實際寫的內容具體回應一下（例如提到的目標、心情），不要講空泛場面話\n"
+    "5. 可以自然帶出『也來我這邊看看』『互相支持一下』這種語氣，但不要生硬置入\n"
+    "6. emoji 最多一個或不用\n"
+    "7. 只輸出留言的文字本身，不要加任何說明、引號或前綴"
+)
+
 
 class BotError(Exception):
     pass
 
 
+def default_state():
+    return {
+        "seen_reply_ids": [],
+        "pending": {},
+        "next_pid": 1,
+        "telegram_offset": 0,
+        "growth": {"seen_post_ids": [], "pending": {}, "next_gid": 1, "date": "", "count_today": 0},
+    }
+
+
 def load_state():
     if STATE_PATH.exists():
-        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
-    return {"seen_reply_ids": [], "pending": {}, "next_pid": 1, "telegram_offset": 0}
+        state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+        state.setdefault("growth", default_state()["growth"])
+        return state
+    return default_state()
 
 
 def save_state(state):
@@ -101,6 +134,24 @@ def list_replies(post_id, access_token):
             timeout=30,
         ),
         f"list replies for {post_id}",
+    )
+    return data.get("data", [])
+
+
+def keyword_search(keyword, access_token, limit=GROWTH_SEARCH_LIMIT):
+    data = _json_or_raise(
+        requests.get(
+            f"{GRAPH_API_BASE}/keyword_search",
+            params={
+                "q": keyword,
+                "search_type": "RECENT",
+                "fields": "id,text,permalink,username,timestamp,is_reply",
+                "limit": limit,
+                "access_token": access_token,
+            },
+            timeout=30,
+        ),
+        f"keyword search for {keyword}",
     )
     return data.get("data", [])
 
@@ -166,6 +217,34 @@ def draft_reply_with_haiku(comment_text, commenter):
     return "".join(block.get("text", "") for block in body.get("content", [])).strip()
 
 
+def draft_growth_comment_with_haiku(post_text, author):
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or _raise("missing env var ANTHROPIC_API_KEY")
+    resp = requests.post(
+        ANTHROPIC_API_BASE,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5",
+            "max_tokens": 200,
+            "system": GROWTH_PERSONA_SYSTEM_PROMPT,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"{author} 發的貼文內容：「{post_text}」\n\n請草擬一則留言。",
+                }
+            ],
+        },
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        raise BotError(f"Haiku growth draft failed: {resp.status_code} {resp.text}")
+    body = resp.json()
+    return "".join(block.get("text", "") for block in body.get("content", [])).strip()
+
+
 def telegram_call(method, payload):
     token = os.environ.get("TELEGRAM_BOT_TOKEN") or _raise("missing env var TELEGRAM_BOT_TOKEN")
     resp = requests.post(TELEGRAM_API_BASE.format(token=token, method=method), json=payload, timeout=30)
@@ -190,6 +269,31 @@ def send_approval_request(pid, commenter, comment_text, draft):
                     [
                         {"text": "✅ 核准發布", "callback_data": f"ar:{pid}"},
                         {"text": "❌ 取消", "callback_data": f"rj:{pid}"},
+                    ]
+                ]
+            },
+        },
+    )
+
+
+def send_growth_approval_request(gid, author, post_text, permalink, draft):
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _raise("missing env var TELEGRAM_CHAT_ID")
+    text = (
+        f"🔍 海巡發現一篇互追／漲粉貼文（來自 {author}）：\n{post_text}\n\n"
+        f"🔗 {permalink}\n\n"
+        f"✍️ 阿翔草擬留言：\n{draft}\n\n"
+        "核准的話會自動幫你留言，留言後請記得手動點連結追蹤對方（目前 API 無法自動追蹤）。是否核准？"
+    )
+    telegram_call(
+        "sendMessage",
+        {
+            "chat_id": chat_id,
+            "text": text,
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {"text": "✅ 核准留言", "callback_data": f"gar:{gid}"},
+                        {"text": "❌ 略過", "callback_data": f"grj:{gid}"},
                     ]
                 ]
             },
@@ -233,27 +337,55 @@ def process_telegram_actions(state, user_id, access_token):
         message_id = message.get("message_id")
         if ":" not in data:
             continue
-        action, pid = data.split(":", 1)
-        pending = state["pending"].get(pid)
-        if not pending:
-            answer_callback(cq["id"], "這則已經處理過了")
-            continue
-        if action == "ar":
-            try:
-                publish_reply(user_id, access_token, pending["draft"], pending["reply_id"])
-                answer_callback(cq["id"], "已發布！")
+        action, key = data.split(":", 1)
+
+        if action in ("ar", "rj"):
+            pending = state["pending"].get(key)
+            if not pending:
+                answer_callback(cq["id"], "這則已經處理過了")
+                continue
+            if action == "ar":
+                try:
+                    publish_reply(user_id, access_token, pending["draft"], pending["reply_id"])
+                    answer_callback(cq["id"], "已發布！")
+                    if chat_id and message_id:
+                        edit_message(chat_id, message_id, f"✅ 已發布回覆：\n{pending['draft']}")
+                except BotError as e:
+                    answer_callback(cq["id"], "發布失敗")
+                    if chat_id and message_id:
+                        edit_message(chat_id, message_id, f"⚠️ 發布失敗：{e}\n\n草稿內容：\n{pending['draft']}")
+                state["pending"].pop(key, None)
+            else:
+                answer_callback(cq["id"], "已取消")
                 if chat_id and message_id:
-                    edit_message(chat_id, message_id, f"✅ 已發布回覆：\n{pending['draft']}")
-            except BotError as e:
-                answer_callback(cq["id"], "發布失敗")
+                    edit_message(chat_id, message_id, f"❌ 已取消這則回覆：\n{pending['draft']}")
+                state["pending"].pop(key, None)
+
+        elif action in ("gar", "grj"):
+            pending = state["growth"]["pending"].get(key)
+            if not pending:
+                answer_callback(cq["id"], "這則已經處理過了")
+                continue
+            if action == "gar":
+                try:
+                    publish_reply(user_id, access_token, pending["draft"], pending["post_id"])
+                    answer_callback(cq["id"], "已留言！記得手動追蹤對方")
+                    if chat_id and message_id:
+                        edit_message(
+                            chat_id,
+                            message_id,
+                            f"✅ 已留言：\n{pending['draft']}\n\n記得手動點連結追蹤對方：\n{pending['permalink']}",
+                        )
+                except BotError as e:
+                    answer_callback(cq["id"], "留言失敗")
+                    if chat_id and message_id:
+                        edit_message(chat_id, message_id, f"⚠️ 留言失敗：{e}\n\n草稿內容：\n{pending['draft']}")
+                state["growth"]["pending"].pop(key, None)
+            else:
+                answer_callback(cq["id"], "已略過")
                 if chat_id and message_id:
-                    edit_message(chat_id, message_id, f"⚠️ 發布失敗：{e}\n\n草稿內容：\n{pending['draft']}")
-            state["pending"].pop(pid, None)
-        elif action == "rj":
-            answer_callback(cq["id"], "已取消")
-            if chat_id and message_id:
-                edit_message(chat_id, message_id, f"❌ 已取消這則回覆：\n{pending['draft']}")
-            state["pending"].pop(pid, None)
+                    edit_message(chat_id, message_id, f"❌ 已略過這篇：\n{pending['draft']}")
+                state["growth"]["pending"].pop(key, None)
 
 
 def draft_new_replies(state, user_id, access_token, own_username):
@@ -306,6 +438,65 @@ def draft_new_replies(state, user_id, access_token, own_username):
             print(f"drafted reply for {rid} (from {username}): {draft}")
 
 
+def draft_growth_patrol(state, user_id, access_token, own_username):
+    growth = state["growth"]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if growth.get("date") != today:
+        growth["date"] = today
+        growth["count_today"] = 0
+
+    if growth["count_today"] >= MAX_GROWTH_PER_DAY:
+        print(f"growth patrol: already hit today's cap ({MAX_GROWTH_PER_DAY}), skipping")
+        return
+
+    seen = set(growth["seen_post_ids"])
+    for keyword in GROWTH_KEYWORDS:
+        if growth["count_today"] >= MAX_GROWTH_PER_DAY:
+            break
+        try:
+            posts = keyword_search(keyword, access_token)
+        except BotError as e:
+            print(f"(warn) keyword search failed for {keyword}: {e}")
+            continue
+        for post in posts:
+            if growth["count_today"] >= MAX_GROWTH_PER_DAY:
+                break
+            pid = post.get("id")
+            if not pid or pid in seen:
+                continue
+            username = (post.get("username") or "").strip()
+            text = (post.get("text") or "").strip()
+            permalink = post.get("permalink") or ""
+            if not text or username == own_username:
+                seen.add(pid)
+                growth["seen_post_ids"].append(pid)
+                continue
+            try:
+                draft = draft_growth_comment_with_haiku(text, username or "網友")
+            except BotError as e:
+                print(f"(warn) failed to draft growth comment for {pid}: {e}")
+                continue
+            gid = f"g{growth['next_gid']}"
+            growth["next_gid"] += 1
+            growth["pending"][gid] = {
+                "post_id": pid,
+                "username": username,
+                "post_text": text,
+                "permalink": permalink,
+                "draft": draft,
+            }
+            try:
+                send_growth_approval_request(gid, username or "網友", text, permalink, draft)
+            except BotError as e:
+                print(f"(warn) failed to send telegram approval for growth post {pid}: {e}")
+                growth["pending"].pop(gid, None)
+                continue
+            seen.add(pid)
+            growth["seen_post_ids"].append(pid)
+            growth["count_today"] += 1
+            print(f"drafted growth comment for {pid} (keyword={keyword}, from {username}): {draft}")
+
+
 def main():
     state = load_state()
     access_token = get_access_token()
@@ -322,8 +513,16 @@ def main():
     except BotError as e:
         print(f"(warn) draft_new_replies failed: {e}")
 
+    try:
+        draft_growth_patrol(state, user_id, access_token, own_username)
+    except BotError as e:
+        print(f"(warn) draft_growth_patrol failed: {e}")
+
     save_state(state)
-    print(f"done. pending approvals: {len(state['pending'])}, total seen replies: {len(state['seen_reply_ids'])}")
+    print(
+        f"done. pending reply approvals: {len(state['pending'])}, total seen replies: {len(state['seen_reply_ids'])}, "
+        f"pending growth approvals: {len(state['growth']['pending'])}, growth comments today: {state['growth']['count_today']}"
+    )
 
 
 if __name__ == "__main__":
