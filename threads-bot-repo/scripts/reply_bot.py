@@ -10,7 +10,7 @@ Threads 留言自動回覆機器人（阿翔｜宅男阿翔開箱測評）
 
 這支程式本身不會「自動」把回覆貼上 Threads —— 一定要使用者在 Telegram 按核准才會真的發布。
 """
-import json, os, sys, time
+import json, os, random, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 import requests
@@ -28,6 +28,21 @@ MAX_RECENT_POSTS = 10
 GROWTH_KEYWORDS = ["互追", "海巡", "流量密碼"]
 MAX_GROWTH_PER_DAY = 10
 GROWTH_SEARCH_LIMIT = 10
+
+LEARN_KEYWORDS = ["加班", "上班族", "台北", "美食", "週末", "深夜", "台灣", "日常"]
+MAX_LEARN_RUNS_PER_DAY = 1
+LEARN_SEARCH_LIMIT = 15
+MAX_LEARN_NOTES_KEPT = 30
+
+LEARN_SYSTEM_PROMPT = (
+    "你是「宅男阿翔｜開箱測評」的文字風格觀察員。你會收到一批真實台灣 Threads 使用者的貼文內容，"
+    "請你純粹觀察分析，不要模仿貼文中的個人資訊。請用條列式，簡短整理你觀察到的：\n"
+    "1. 常用的台灣口語詞彙、流行用語\n"
+    "2. 常見的語氣、標點、排版習慣（例如分行方式、emoji 使用）\n"
+    "3. 值得阿翔之後寫文參考的寫作手法\n"
+    "只需要輸出重點筆記本身（條列式，不超過 6 點），不要輸出任何前言或結語，"
+    "也不要提到任何真實使用者的帳號名稱或可識別身份的細節。"
+)
 
 PERSONA_EXAMPLES = [
     "又加班到十點多\n捷運上整節車廂剩我一個\n這種時間點的月台超級安靜\n只想趕快回家躺平",
@@ -78,6 +93,7 @@ def default_state():
         "next_pid": 1,
         "telegram_offset": 0,
         "growth": {"seen_post_ids": [], "pending": {}, "next_gid": 1, "date": "", "count_today": 0},
+        "learning": {"seen_post_ids": [], "notes": [], "date": "", "ran_today": False},
     }
 
 
@@ -85,6 +101,7 @@ def load_state():
     if STATE_PATH.exists():
         state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
         state.setdefault("growth", default_state()["growth"])
+        state.setdefault("learning", default_state()["learning"])
         return state
     return default_state()
 
@@ -241,6 +258,32 @@ def draft_growth_comment_with_haiku(post_text, author):
     )
     if resp.status_code != 200:
         raise BotError(f"Haiku growth draft failed: {resp.status_code} {resp.text}")
+    body = resp.json()
+    return "".join(block.get("text", "") for block in body.get("content", [])).strip()
+
+
+def summarize_style_with_haiku(post_texts):
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or _raise("missing env var ANTHROPIC_API_KEY")
+    joined = "\n---\n".join(post_texts)
+    resp = requests.post(
+        ANTHROPIC_API_BASE,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": "claude-haiku-4-5",
+            "max_tokens": 400,
+            "system": LEARN_SYSTEM_PROMPT,
+            "messages": [
+                {"role": "user", "content": f"以下是收集到的貼文內容：\n\n{joined}"}
+            ],
+        },
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        raise BotError(f"Haiku style summary failed: {resp.status_code} {resp.text}")
     body = resp.json()
     return "".join(block.get("text", "") for block in body.get("content", [])).strip()
 
@@ -497,6 +540,59 @@ def draft_growth_patrol(state, user_id, access_token, own_username):
             print(f"drafted growth comment for {pid} (keyword={keyword}, from {username}): {draft}")
 
 
+def browse_and_learn(state, access_token, own_username):
+    """純瀏覽學習台灣用語與貼文風格：只呼叫 keyword_search 讀取貼文內容，
+    絕對不留言、不追蹤、不發布任何東西 —— 只是把觀察整理成筆記存起來。"""
+    learning = state["learning"]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if learning.get("date") != today:
+        learning["date"] = today
+        learning["ran_today"] = False
+
+    if learning.get("ran_today"):
+        print("style learning: already ran today, skipping")
+        return
+
+    seen = set(learning["seen_post_ids"])
+    keyword = random.choice(LEARN_KEYWORDS)
+    try:
+        posts = keyword_search(keyword, access_token, limit=LEARN_SEARCH_LIMIT)
+    except BotError as e:
+        print(f"(warn) style learning keyword search failed for {keyword}: {e}")
+        return
+
+    texts = []
+    for post in posts:
+        pid = post.get("id")
+        username = (post.get("username") or "").strip()
+        text = (post.get("text") or "").strip()
+        if not pid or pid in seen or not text or username == own_username:
+            if pid:
+                seen.add(pid)
+                learning["seen_post_ids"].append(pid)
+            continue
+        texts.append(text)
+        seen.add(pid)
+        learning["seen_post_ids"].append(pid)
+
+    if not texts:
+        print(f"style learning: no new posts found for keyword {keyword}")
+        learning["ran_today"] = True
+        return
+
+    try:
+        summary = summarize_style_with_haiku(texts)
+    except BotError as e:
+        print(f"(warn) style learning summary failed: {e}")
+        return
+
+    learning["notes"].append({"date": today, "keyword": keyword, "sample_count": len(texts), "notes": summary})
+    learning["notes"] = learning["notes"][-MAX_LEARN_NOTES_KEPT:]
+    learning["seen_post_ids"] = learning["seen_post_ids"][-500:]
+    learning["ran_today"] = True
+    print(f"style learning: collected {len(texts)} posts for keyword '{keyword}', notes:\n{summary}")
+
+
 def main():
     state = load_state()
     access_token = get_access_token()
@@ -518,10 +614,16 @@ def main():
     except BotError as e:
         print(f"(warn) draft_growth_patrol failed: {e}")
 
+    try:
+        browse_and_learn(state, access_token, own_username)
+    except BotError as e:
+        print(f"(warn) browse_and_learn failed: {e}")
+
     save_state(state)
     print(
         f"done. pending reply approvals: {len(state['pending'])}, total seen replies: {len(state['seen_reply_ids'])}, "
-        f"pending growth approvals: {len(state['growth']['pending'])}, growth comments today: {state['growth']['count_today']}"
+        f"pending growth approvals: {len(state['growth']['pending'])}, growth comments today: {state['growth']['count_today']}, "
+        f"style notes collected: {len(state['learning']['notes'])}"
     )
 
 
