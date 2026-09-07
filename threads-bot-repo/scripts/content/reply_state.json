@@ -28,5 +28,18 @@
     }
   },
   "next_pid": 4,
-  "telegram_offset": 76401714
+  "telegram_offset": 76401714,
+  "growth": {
+    "seen_post_ids": [],
+    "pending": {},
+    "next_gid": 1,
+    "date": "2026-09-07",
+    "count_today": 0
+  },
+  "learning": {
+    "seen_post_ids": [],
+    "notes": [],
+    "date": "2026-09-07",
+    "ran_today": false
+  }
 }
