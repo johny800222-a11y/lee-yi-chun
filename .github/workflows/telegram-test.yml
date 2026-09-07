@@ -18,16 +18,4 @@ jobs:
           echo ""
           echo "--- extracting real chat_id from getUpdates (digits spaced out to avoid log masking) ---"
           curl -s "https://api.telegram.org/bot$BOT_TOKEN/getUpdates" > /tmp/updates.json
-          python3 -c "
-import json
-with open('/tmp/updates.json') as f:
-    d = json.load(f)
-results = d.get('result', [])
-if not results:
-    print('NO UPDATES FOUND')
-else:
-    last = results[-1]
-    chat_id = last['message']['chat']['id']
-    spaced = ' '.join(str(chat_id))
-    print('real chat_id (spaced): ' + spaced)
-"
+          python3 -c "import json; d=json.load(open('/tmp/updates.json')); r=d.get('result', []); print('NO UPDATES FOUND') if not r else print('real chat_id (spaced): ' + ' '.join(str(r[-1]['message']['chat']['id'])))"
