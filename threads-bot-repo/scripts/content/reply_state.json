@@ -13,7 +13,8 @@
     "18099870377569249",
     "17956463277227519",
     "18125088842309094",
-    "17868270207643903"
+    "17868270207643903",
+    "18313572370303290"
   ],
   "pending": {
     "p1": {
@@ -113,21 +114,28 @@
       "username": "mind_grow_counseling_center",
       "comment": "追追",
       "draft": "先推了，待會認真看你分享的東西"
+    },
+    "p15": {
+      "reply_id": "18313572370303290",
+      "post_id": "17898108528665529",
+      "username": "lwd329329",
+      "comment": "追",
+      "draft": "感謝追蹤啦，一起耍廢"
     }
   },
-  "next_pid": 15,
+  "next_pid": 16,
   "telegram_offset": 76401714,
   "growth": {
     "seen_post_ids": [],
     "pending": {},
     "next_gid": 1,
-    "date": "2026-09-07",
+    "date": "2026-09-08",
     "count_today": 0
   },
   "learning": {
     "seen_post_ids": [],
     "notes": [],
-    "date": "2026-09-07",
+    "date": "2026-09-08",
     "ran_today": false
   }
 }
