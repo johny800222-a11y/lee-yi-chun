@@ -37,7 +37,11 @@
     "18117412192943594",
     "18022023380865670",
     "18471034432118462",
-    "17979162588093570"
+    "17979162588093570",
+    "18132411010645330",
+    "18230992240321480",
+    "18110096114156887",
+    "17878948236535029"
   ],
   "pending": {
     "p1": {
@@ -305,21 +309,49 @@
       "username": "mengxiangshiyanjia",
       "comment": "https://youtube.com/shorts/8N1rA8whXQM?si\n 新頻道剛起步\n希望能和大家交流\n謝謝☺️",
       "draft": "先去看看，加油啦兄弟新頻道起步最難熬"
+    },
+    "p42": {
+      "reply_id": "18132411010645330",
+      "post_id": "18078243566342066",
+      "username": "pipi_ouo_woof",
+      "comment": "追追",
+      "draft": "嘿嘿感謝追蹤，以後一起耍廢"
+    },
+    "p43": {
+      "reply_id": "18230992240321480",
+      "post_id": "18078243566342066",
+      "username": "tiger.24521355",
+      "comment": "已雙追☺️🙌🏻",
+      "draft": "謝謝啦！希望之後有好東西能跟你分享"
+    },
+    "p44": {
+      "reply_id": "18110096114156887",
+      "post_id": "17898108528665529",
+      "username": "hellmeme.tw",
+      "comment": "互追～",
+      "draft": "互追囉兄弟，以後一起分享日常廢文"
+    },
+    "p45": {
+      "reply_id": "17878948236535029",
+      "post_id": "17898108528665529",
+      "username": "keypoint.studio.official",
+      "comment": "🫶",
+      "draft": "謝謝你啦，互相互相 🫶"
     }
   },
-  "next_pid": 42,
+  "next_pid": 46,
   "telegram_offset": 76401714,
   "growth": {
     "seen_post_ids": [],
     "pending": {},
     "next_gid": 1,
-    "date": "2026-09-08",
+    "date": "2026-09-09",
     "count_today": 0
   },
   "learning": {
     "seen_post_ids": [],
     "notes": [],
-    "date": "2026-09-08",
+    "date": "2026-09-09",
     "ran_today": false
   }
 }
