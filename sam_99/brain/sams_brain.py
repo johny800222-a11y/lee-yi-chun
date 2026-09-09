@@ -107,7 +107,9 @@ except Exception as e:
 def _fmt_pattern(p: dict) -> str:
     """將形態識別結果格式化為可讀字串，傳給大腦"""
     if not p or not p.get("detected"):
-        return "未識別"
+        # 帶出駁回原因，讓大腦知道「為什麼沒有形態」，避免自行腦補
+        rej = (p or {}).get("reject")
+        return f"未識別（{rej}）" if rej else "未識別"
     pt = p.get("pattern", "")
     if pt in ("bull_ABCD", "bear_ABCD"):
         direction = "多頭" if pt == "bull_ABCD" else "空頭"
@@ -123,13 +125,22 @@ def _fmt_pattern(p: dict) -> str:
     if pt in ("HS_bottom", "HS_top"):
         label = "頭肩底" if pt == "HS_bottom" else "頭肩頂"
         broke = "✅ 已突破頸線" if p.get("breakout") else "⏳ 等待突破頸線"
+        q = p.get("quality", {})
+        qs = (f"｜實測 兩肩差{q.get('shoulder_diff_pct')}% "
+              f"頭部突出{q.get('head_depth_pct')}% 跨度{q.get('span_bars')}根") if q else ""
         return (f"✅ {label}  頸線={p.get('neckline')}  目標={p.get('target')}  "
-                f"止損={p.get('sl_level')}  {broke}")
+                f"止損={p.get('sl_level')}  {broke}{qs}")
     if pt in ("W_bottom", "M_top"):
         label = "W底（投間底）" if pt == "W_bottom" else "M頭（雙頂）"
         broke = "✅ 已突破頸線" if p.get("breakout") else "⏳ 等待突破頸線"
+        q = p.get("quality", {})
+        diff = q.get("feet_diff_pct", q.get("peaks_diff_pct"))
+        qs = (f"｜實測 兩腳差{diff}% 間隔{q.get('bars_gap')}根 "
+              f"深度{q.get('depth_pct')}%") if q else ""
+        vc = p.get("vol_confirm")
+        vs = ("  🔊突破帶量" if vc else "  ⚠️突破量能不足") if vc is not None else ""
         return (f"✅ {label}  頸線={p.get('neckline')}  目標={p.get('target')}  "
-                f"止損={p.get('sl_level')}  {broke}")
+                f"止損={p.get('sl_level')}  {broke}{vs}{qs}")
     return str(p)
 
 def _get_knowledge(query: str, top_k: int = 4) -> str:
@@ -172,6 +183,61 @@ def save_state(state: dict):
 
 def load_trades() -> list:
     return json.loads(TRADE_LOG_FILE.read_text()) if TRADE_LOG_FILE.exists() else []
+
+# ─────────────────────────────────────────────
+# 里程碑通知（2026-08-26）：滿 300 筆倉位時發一次統計報告，不重複發
+# ─────────────────────────────────────────────
+MILESTONE_TRADE_COUNT = 300
+
+def _compute_stats(finals: list) -> dict:
+    """finals = 已去重（每個倉位只取最後一筆，含分段出場的完整pnl）的交易列表"""
+    wins   = [t for t in finals if t.get("pnl", 0) > 0.05]
+    losses = [t for t in finals if t.get("pnl", 0) < -0.05]
+    total_pnl  = sum(t.get("pnl", 0) for t in finals)
+    gross_win  = sum(t["pnl"] for t in wins)
+    gross_loss = abs(sum(t["pnl"] for t in losses))
+    win_rate   = len(wins) / (len(wins) + len(losses)) * 100 if (wins or losses) else 0
+    profit_factor = gross_win / gross_loss if gross_loss else float("inf")
+    avg_win  = gross_win / len(wins) if wins else 0
+    avg_loss = gross_loss / len(losses) if losses else 0
+    rr_ratio = avg_win / avg_loss if avg_loss else float("inf")
+    return {
+        "total": len(finals), "wins": len(wins), "losses": len(losses),
+        "win_rate": win_rate, "points": total_pnl,
+        "profit_factor": profit_factor, "rr_ratio": rr_ratio,
+        "avg_win": avg_win, "avg_loss": avg_loss,
+    }
+
+def _check_trade_milestone(state: dict) -> None:
+    """每次存完一筆交易後檢查是否達到里程碑（滿300筆），達到就發TG統計報告一次"""
+    try:
+        trades = load_trades()
+        g: dict = {}
+        for t in trades:
+            g[(t.get("symbol"), t.get("entered_at"))] = t   # 同倉位取最後一筆（含分段完整pnl）
+        finals = list(g.values())
+
+        flags = state.setdefault("milestone_notified", [])
+        key = str(MILESTONE_TRADE_COUNT)
+        if len(finals) >= MILESTONE_TRADE_COUNT and key not in flags:
+            s = _compute_stats(finals)
+            msg = (
+                f"🎯 <b>SAM大腦里程碑：滿{MILESTONE_TRADE_COUNT}筆倉位</b>\n"
+                f"總倉位：{s['total']}筆（{s['wins']}W/{s['losses']}L）\n"
+                f"POINTS（累積損益）：{s['points']:+.2f}U\n"
+                f"勝率：{s['win_rate']:.1f}%\n"
+                f"獲利因子(PF)：{s['profit_factor']:.2f}\n"
+                f"盈虧比：{s['rr_ratio']:.2f}（平均贏{s['avg_win']:.2f}U / 平均輸{s['avg_loss']:.2f}U）"
+            )
+            try:
+                with httpx.Client(timeout=10) as c:
+                    c.post(TG_URL, json={"chat_id": TG_CHAT, "text": msg, "parse_mode": "HTML"})
+                log.info(f"[MILESTONE] 已發送{MILESTONE_TRADE_COUNT}筆里程碑通知")
+            except Exception as e:
+                log.warning(f"[MILESTONE] TG發送失敗: {e}")
+            flags.append(key)
+    except Exception as e:
+        log.warning(f"[MILESTONE] 檢查失敗: {e}")
 
 def save_trade(trade: dict):
     trades = load_trades()
@@ -752,15 +818,24 @@ def _detect_triangle(highs: list, lows: list, lookback: int = 40) -> dict:
         "near_apex": compression > 0.7,  # 收斂超過70% = 接近頂點，即將表態
     }
 
+# ── 頭肩形態品質門檻（2026-08-03 收緊）─────────────────────────
+# 舊邏輯唯一條件是「頭比兩肩低/高」，任三個 swing point 約 1/3 機率符合。
+# 真正的頭肩需要：兩肩高度相近（對稱）、頭部突出夠深、整體跨度夠長。
+HS_SHOULDER_TOL  = 0.03   # 兩肩高度差容忍
+HS_MIN_HEAD_DEPTH= 0.02   # 頭相對兩肩均值的最小突出幅度
+HS_MIN_BARS      = 12     # 左肩到右肩最少跨幾根
+
 def _detect_hs(highs: list, lows: list, closes: list) -> dict:
     """
     頭肩頂/底識別
     原主邏輯：
     - 頭肩底 → 等右肩踩穩，突破頸線帶量確認進場，停損守右肩低點
     - 頭肩頂 → 右肩形成後跌破頸線，停損守右肩高點
+
+    2026-08-03：加入對稱性 / 頭部深度 / 跨度三道門檻，並回傳 quality。
     """
     swings = _find_swing_points(highs, lows, order=5)
-    result = {"detected": False, "pattern": ""}
+    result = {"detected": False, "pattern": "", "reject": ""}
 
     # 頭肩底（三個低點，中間最低 = 頭）
     sl = swings["swing_lows"]
@@ -769,21 +844,33 @@ def _detect_hs(highs: list, lows: list, closes: list) -> dict:
         h_i,  h_v  = sl[-2]   # 頭
         rs_i, rs_v = sl[-1]   # 右肩
         if h_v < ls_v and h_v < rs_v:  # 頭最低
-            neckline = max(highs[ls_i:rs_i])  # 兩肩之間的高點 = 頸線
-            target   = neckline + (neckline - h_v)  # 頸線 + 頭到頸線的距離
-            current  = closes[-1]
-            above_neck = current > neckline
-            result = {
-                "detected":  True,
-                "pattern":   "HS_bottom",
-                "left_shoulder": round(ls_v, 6),
-                "head":          round(h_v, 6),
-                "right_shoulder": round(rs_v, 6),
-                "neckline":      round(neckline, 6),
-                "target":        round(target, 6),
-                "breakout":      above_neck,
-                "sl_level":      round(rs_v * 0.99, 6),  # 止損守右肩低點
-            }
+            sh_diff  = abs(ls_v - rs_v) / ls_v if ls_v else 1
+            sh_avg   = (ls_v + rs_v) / 2
+            head_dep = (sh_avg - h_v) / sh_avg if sh_avg else 0
+            span     = abs(rs_i - ls_i)
+            if sh_diff >= HS_SHOULDER_TOL:
+                result["reject"] = f"頭肩底兩肩差{sh_diff*100:.1f}%≥{HS_SHOULDER_TOL*100:.0f}%（不對稱）"
+            elif head_dep < HS_MIN_HEAD_DEPTH:
+                result["reject"] = f"頭肩底頭部僅突出{head_dep*100:.1f}%<{HS_MIN_HEAD_DEPTH*100:.0f}%"
+            elif span < HS_MIN_BARS:
+                result["reject"] = f"頭肩底跨度僅{span}根<{HS_MIN_BARS}根"
+            else:
+                neckline = max(highs[ls_i:rs_i])  # 兩肩之間的高點 = 頸線
+                current  = closes[-1]
+                result = {
+                    "detected":  True,
+                    "pattern":   "HS_bottom",
+                    "left_shoulder": round(ls_v, 6),
+                    "head":          round(h_v, 6),
+                    "right_shoulder": round(rs_v, 6),
+                    "neckline":      round(neckline, 6),
+                    "target":        round(neckline + (neckline - h_v), 6),
+                    "breakout":      current > neckline,
+                    "sl_level":      round(rs_v * 0.99, 6),  # 止損守右肩低點
+                    "quality": {"shoulder_diff_pct": round(sh_diff*100, 2),
+                                "head_depth_pct": round(head_dep*100, 2),
+                                "span_bars": span},
+                }
 
     # 頭肩頂（三個高點，中間最高 = 頭）
     sh = swings["swing_highs"]
@@ -792,32 +879,62 @@ def _detect_hs(highs: list, lows: list, closes: list) -> dict:
         h_i,  h_v  = sh[-2]
         rs_i, rs_v = sh[-1]
         if h_v > ls_v and h_v > rs_v:  # 頭最高
-            neckline = min(lows[ls_i:rs_i]) if ls_i < rs_i else lows[ls_i]
-            target   = neckline - (h_v - neckline)
-            current  = closes[-1]
-            below_neck = current < neckline
-            result = {
-                "detected":  True,
-                "pattern":   "HS_top",
-                "left_shoulder": round(ls_v, 6),
-                "head":          round(h_v, 6),
-                "right_shoulder": round(rs_v, 6),
-                "neckline":      round(neckline, 6),
-                "target":        round(target, 6),
-                "breakout":      below_neck,
-                "sl_level":      round(rs_v * 1.01, 6),  # 止損守右肩高點
-            }
+            sh_diff  = abs(ls_v - rs_v) / ls_v if ls_v else 1
+            sh_avg   = (ls_v + rs_v) / 2
+            head_dep = (h_v - sh_avg) / sh_avg if sh_avg else 0
+            span     = abs(rs_i - ls_i)
+            if sh_diff >= HS_SHOULDER_TOL:
+                result["reject"] = result["reject"] or f"頭肩頂兩肩差{sh_diff*100:.1f}%≥{HS_SHOULDER_TOL*100:.0f}%（不對稱）"
+            elif head_dep < HS_MIN_HEAD_DEPTH:
+                result["reject"] = result["reject"] or f"頭肩頂頭部僅突出{head_dep*100:.1f}%<{HS_MIN_HEAD_DEPTH*100:.0f}%"
+            elif span < HS_MIN_BARS:
+                result["reject"] = result["reject"] or f"頭肩頂跨度僅{span}根<{HS_MIN_BARS}根"
+            else:
+                neckline = min(lows[ls_i:rs_i]) if ls_i < rs_i else lows[ls_i]
+                current  = closes[-1]
+                result = {
+                    "detected":  True,
+                    "pattern":   "HS_top",
+                    "left_shoulder": round(ls_v, 6),
+                    "head":          round(h_v, 6),
+                    "right_shoulder": round(rs_v, 6),
+                    "neckline":      round(neckline, 6),
+                    "target":        round(neckline - (h_v - neckline), 6),
+                    "breakout":      current < neckline,
+                    "sl_level":      round(rs_v * 1.01, 6),  # 止損守右肩高點
+                    "quality": {"shoulder_diff_pct": round(sh_diff*100, 2),
+                                "head_depth_pct": round(head_dep*100, 2),
+                                "span_bars": span},
+                }
     return result
 
-def _detect_wm(highs: list, lows: list, closes: list) -> dict:
+# ── W/M 形態品質門檻（2026-08-03 收緊）─────────────────────────
+# 舊門檻只要求兩腳相差 <5%，實測 15 支主流幣偵測率 100% —— 等於沒過濾。
+# 真正的 W 底需要：兩腳夠平、中間隔夠久、頸線夠高（有真實的洗盤深度）。
+WM_FEET_TOL     = 0.02   # 兩腳/兩峰價差容忍（舊 0.05）
+WM_MIN_BARS     = 8      # 兩腳最少間隔根數（太近 = 同一波雜訊，不是形態）
+WM_MIN_DEPTH    = 0.03   # 頸線相對腳部最小深度（太淺 = 橫盤雜訊）
+
+def _detect_wm(highs: list, lows: list, closes: list,
+               volumes: list | None = None) -> dict:
     """
     W底（投間底）/ M頭（雙頂）識別
     原主邏輯：
     - W底：右腳踩穩後突破頸線帶量 = 進場，停損守右腳，目標 = 頸線 + 等幅
     - M頭：右峰下跌破頸線 = 空單，停損守右峰，目標 = 頸線 - 等幅
+
+    2026-08-03：加入三道品質門檻（兩腳平整度 / 間隔根數 / 形態深度），
+    並回傳 quality 供 LLM 引用實測數字，避免「偵測必中」造成的假形態敘事。
     """
     swings = _find_swing_points(highs, lows, order=4)
-    result = {"detected": False, "pattern": ""}
+    result = {"detected": False, "pattern": "", "reject": ""}
+
+    def _vol_confirm(bo: bool) -> bool | None:
+        """突破那根量能是否 > 近20根均量（無量資料則回 None）"""
+        if not volumes or len(volumes) < 21 or not bo:
+            return None
+        avg = sum(volumes[-21:-1]) / 20
+        return bool(avg and volumes[-1] > avg)
 
     # W底：兩個相近低點
     sl = swings["swing_lows"]
@@ -825,20 +942,34 @@ def _detect_wm(highs: list, lows: list, closes: list) -> dict:
         lf_i, lf_v = sl[-2]  # 左腳
         rf_i, rf_v = sl[-1]  # 右腳
         diff_pct = abs(lf_v - rf_v) / lf_v if lf_v else 1
-        if diff_pct < 0.05:  # 兩腳相差 < 5% = 雙底
-            neckline_idx_range = highs[lf_i:rf_i] if lf_i < rf_i else [highs[lf_i]]
-            neckline = max(neckline_idx_range) if neckline_idx_range else highs[lf_i]
-            target   = neckline + (neckline - min(lf_v, rf_v))
+        bars_gap  = abs(rf_i - lf_i)
+        neckline_idx_range = highs[lf_i:rf_i] if lf_i < rf_i else [highs[lf_i]]
+        neckline = max(neckline_idx_range) if neckline_idx_range else highs[lf_i]
+        low_foot = min(lf_v, rf_v)
+        depth_pct = (neckline - low_foot) / low_foot if low_foot else 0
+
+        if diff_pct >= WM_FEET_TOL:
+            result["reject"] = f"W底兩腳差{diff_pct*100:.1f}%≥{WM_FEET_TOL*100:.0f}%"
+        elif bars_gap < WM_MIN_BARS:
+            result["reject"] = f"W底兩腳僅隔{bars_gap}根<{WM_MIN_BARS}根"
+        elif depth_pct < WM_MIN_DEPTH:
+            result["reject"] = f"W底深度僅{depth_pct*100:.1f}%<{WM_MIN_DEPTH*100:.0f}%（橫盤雜訊）"
+        else:
             current  = closes[-1]
+            bo       = current > neckline
             result = {
                 "detected":  True,
                 "pattern":   "W_bottom",
                 "left_foot": round(lf_v, 6),
                 "right_foot": round(rf_v, 6),
                 "neckline":  round(neckline, 6),
-                "target":    round(target, 6),
-                "breakout":  current > neckline,
+                "target":    round(neckline + (neckline - low_foot), 6),
+                "breakout":  bo,
+                "vol_confirm": _vol_confirm(bo),
                 "sl_level":  round(rf_v * 0.99, 6),
+                "quality":   {"feet_diff_pct": round(diff_pct*100, 2),
+                              "bars_gap": bars_gap,
+                              "depth_pct": round(depth_pct*100, 2)},
             }
 
     # M頭：兩個相近高點
@@ -847,20 +978,34 @@ def _detect_wm(highs: list, lows: list, closes: list) -> dict:
         lp_i, lp_v = sh[-2]
         rp_i, rp_v = sh[-1]
         diff_pct = abs(lp_v - rp_v) / lp_v if lp_v else 1
-        if diff_pct < 0.05:
-            neckline_range = lows[lp_i:rp_i] if lp_i < rp_i else [lows[lp_i]]
-            neckline = min(neckline_range) if neckline_range else lows[lp_i]
-            target   = neckline - (max(lp_v, rp_v) - neckline)
+        bars_gap  = abs(rp_i - lp_i)
+        neckline_range = lows[lp_i:rp_i] if lp_i < rp_i else [lows[lp_i]]
+        neckline = min(neckline_range) if neckline_range else lows[lp_i]
+        high_peak = max(lp_v, rp_v)
+        depth_pct = (high_peak - neckline) / neckline if neckline else 0
+
+        if diff_pct >= WM_FEET_TOL:
+            result["reject"] = result["reject"] or f"M頭兩峰差{diff_pct*100:.1f}%≥{WM_FEET_TOL*100:.0f}%"
+        elif bars_gap < WM_MIN_BARS:
+            result["reject"] = result["reject"] or f"M頭兩峰僅隔{bars_gap}根<{WM_MIN_BARS}根"
+        elif depth_pct < WM_MIN_DEPTH:
+            result["reject"] = result["reject"] or f"M頭深度僅{depth_pct*100:.1f}%<{WM_MIN_DEPTH*100:.0f}%（橫盤雜訊）"
+        else:
             current  = closes[-1]
+            bo       = current < neckline
             result = {
                 "detected":  True,
                 "pattern":   "M_top",
                 "left_peak": round(lp_v, 6),
                 "right_peak": round(rp_v, 6),
                 "neckline":  round(neckline, 6),
-                "target":    round(target, 6),
-                "breakout":  current < neckline,
+                "target":    round(neckline - (high_peak - neckline), 6),
+                "breakout":  bo,
+                "vol_confirm": _vol_confirm(bo),
                 "sl_level":  round(rp_v * 1.01, 6),
+                "quality":   {"peaks_diff_pct": round(diff_pct*100, 2),
+                              "bars_gap": bars_gap,
+                              "depth_pct": round(depth_pct*100, 2)},
             }
     return result
 
@@ -920,6 +1065,63 @@ def _detect_fake_breakout(closes: list, highs: list, lows: list,
                 (l0 < swing_low and c0 > swing_low and c1 > swing_low)
 
     return {"fake_up": fake_up, "fake_down": fake_down}
+
+# ─────────────────────────────────────────────
+# 關鍵點位突破計算機（key_level_db.json）軟性參考
+# 2026-08-13：累積 59 天、107 幣/時框組合、7,021 信號後接入。
+# 只做「軟性參考」——寫進 prompt 給 LLM 看，並在 virtual_enter 依假突破率縮倉，
+# 不做硬性跳過（樣本仍在累積、且有前視偏差風險，先觀察一個月再決定要不要升級）。
+# ─────────────────────────────────────────────
+KEY_LEVEL_DB_PATH = Path(__file__).parent / "key_level_db.json"
+KEY_LEVEL_MIN_SIGNALS = 20   # 至少這麼多筆信號才採用該幣/時框的假突破率
+_key_level_db: dict = {}
+_key_level_db_ts: float = 0.0
+KEY_LEVEL_DB_TTL = 3600      # 每小時重新載入一次（配合每日 12:00 累積更新）
+
+def _load_key_level_db() -> dict:
+    global _key_level_db, _key_level_db_ts
+    if time.time() - _key_level_db_ts < KEY_LEVEL_DB_TTL and _key_level_db:
+        return _key_level_db
+    try:
+        if KEY_LEVEL_DB_PATH.exists():
+            with open(KEY_LEVEL_DB_PATH) as f:
+                _key_level_db = json.load(f)
+            _key_level_db_ts = time.time()
+    except Exception as e:
+        log.warning(f"[KEY_LEVEL] DB載入失敗: {e}")
+    return _key_level_db
+
+def get_key_level_stats(symbol: str) -> dict:
+    """回傳該幣 4H / 1D 假突破率（樣本不足回傳 None，不對該時框下判斷）"""
+    db  = _load_key_level_db()
+    sym = symbol.replace("/USDT:USDT", "").replace("/USDT", "").replace("USDT", "").upper()
+    out = {}
+    for tf, key_prefix in (("4h", "fake_rate_4h"), ("1d", "fake_rate_1d")):
+        e = db.get(f"{sym}_{tf}", {})
+        if e.get("signals", 0) >= KEY_LEVEL_MIN_SIGNALS:
+            out[key_prefix] = e.get("fake_rate")
+            out[f"{key_prefix.replace('rate','n')}"] = e.get("signals")
+        else:
+            out[key_prefix] = None
+    return out
+
+def key_level_size_mult(symbol: str, stats: dict | None = None) -> tuple[float, str]:
+    """
+    依關鍵點位假突破率算出縮倉倍數（軟性濾網，比照 99MA 三層過濾的設計）：
+      假突破率 ≥80%（4H或1D任一）→ 倉位 ×0.5
+      假突破率 65~80%           → 倉位 ×0.8
+      < 65% 或樣本不足           → 全倉 ×1.0
+    """
+    stats = stats or get_key_level_stats(symbol)
+    rates = [v for k, v in stats.items() if k.startswith("fake_rate") and v is not None]
+    if not rates:
+        return 1.0, ""
+    worst = max(rates)
+    if worst >= 80:
+        return 0.5, f"關鍵位假突破率{worst:.0f}%≥80%，倉位縮50%"
+    if worst >= 65:
+        return 0.8, f"關鍵位假突破率{worst:.0f}%≥65%，倉位縮20%"
+    return 1.0, ""
 
 async def _fetch_market_snapshot(symbol: str) -> dict | None:
     """多時間框架市場快照：日線方向 + 4H結構 + 1H進場訊號 + 15m日內訊號"""
@@ -1067,7 +1269,7 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
         pattern_abcd_15m     = _detect_abcd(d15m["closes"], d15m["highs"], d15m["lows"])
         pattern_triangle_15m = _detect_triangle(d15m["highs"], d15m["lows"], lookback=40)
         pattern_hs_15m       = _detect_hs(d15m["highs"], d15m["lows"], d15m["closes"])
-        pattern_wm_15m       = _detect_wm(d15m["highs"], d15m["lows"], d15m["closes"])
+        pattern_wm_15m       = _detect_wm(d15m["highs"], d15m["lows"], d15m["closes"], d15m["volumes"])
         fake_bo_15m = _detect_fake_breakout(
             d15m["closes"], d15m["highs"], d15m["lows"],
             structure_15m["swing_high"], structure_15m["swing_low"]
@@ -1077,7 +1279,7 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
         pattern_abcd     = _detect_abcd(d1h["closes"], d1h["highs"], d1h["lows"])
         pattern_triangle = _detect_triangle(d1h["highs"], d1h["lows"], lookback=40)
         pattern_hs       = _detect_hs(d1h["highs"], d1h["lows"], d1h["closes"])
-        pattern_wm       = _detect_wm(d1h["highs"], d1h["lows"], d1h["closes"])
+        pattern_wm       = _detect_wm(d1h["highs"], d1h["lows"], d1h["closes"], d1h["volumes"])
 
         # 假突破偵測（1H）
         fake_bo = _detect_fake_breakout(
@@ -1189,6 +1391,8 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
             # 距離流動性
             "dist_to_swing_high_pct": dist_to_swing_high,
             "dist_to_swing_low_pct":  dist_to_swing_low,
+            # 關鍵點位突破計算機（59天累積，樣本<20的時框回傳None，不下判斷）
+            "key_level": get_key_level_stats(symbol),
             "source": "sam_v2",
             # 原始 K 線（供 _sam_decide 畫圖用）
             "_d15m": d15m,
@@ -1750,6 +1954,11 @@ async def _sam_decide(market: dict) -> dict:
 4H 波段高點={market.get('swing_high_4h')}  低點={market.get('swing_low_4h')}
 1H 近高（空頭止損）={market.get('swing_high_1h')}（距今{market.get('dist_to_swing_high_pct',0):+.2f}%）
 1H 近低（多頭止損）={market.get('swing_low_1h')}（距今{market.get('dist_to_swing_low_pct',0):+.2f}%）
+{(lambda kl: (
+    f"關鍵位突破計算機（59天累積）：4H假突破率={kl.get('fake_rate_4h')}%（{kl.get('fake_rate_4h_n','')}筆）  "
+    f"1D假突破率={kl.get('fake_rate_1d')}%（{kl.get('fake_rate_1d_n','')}筆）"
+    f"{'　⚠️ 假突破率偏高，這個幣的突破訊號較不可信，需更嚴格量能/回測確認' if max([v for v in (kl.get('fake_rate_4h'), kl.get('fake_rate_1d')) if v is not None], default=0) >= 65 else ''}"
+) if any(v is not None for v in market.get('key_level',{}).values()) else "關鍵位突破計算機：此幣樣本不足（<20筆），不列入判斷")(market.get('key_level', {}))}
 日線趨勢：{market.get('daily_trend')}  1H趨勢：{market.get('trend_1h')}
 BTC大方向：{_BTC_REGIME_CACHE.get('regime','unknown')}（BTC={_BTC_REGIME_CACHE.get('btc_price',0):,.0f} / MA200={_BTC_REGIME_CACHE.get('ma200',0):,.0f}）
 宏觀濾鏡：BTC.D={_BTC_REGIME_CACHE.get('btc_dominance',0)}%（{_BTC_REGIME_CACHE.get('dom_trend','flat')}）  OTHERS.D山寨指數={_BTC_REGIME_CACHE.get('others_d',0)}%（{_BTC_REGIME_CACHE.get('others_trend','flat')}）{'　⚠️ 山寨做多逆風（BTC.D升或OTHERS.D跌），山寨多單提高門檻' if _BTC_REGIME_CACHE.get('alt_headwind') else '　山寨資金面中性/順風'}
@@ -2259,6 +2468,13 @@ def virtual_enter(state: dict, signal: dict, decision: dict) -> dict | None:
         _size_note = ("左側佈局" if _et == "left_side" else "逆日線試探") + "，風險砍半至50%"
         log.info(f"[SIZE_DOWN] {symbol} {_size_note}（risk {risk_amt:.2f}U）")
 
+    # ── 關鍵點位假突破率縮倉（2026-08-13 接入，軟性濾網，不擋單）──
+    _kl_stats = signal.get("key_level") or {}
+    _kl_mult, _kl_note = key_level_size_mult(symbol, _kl_stats)
+    if _kl_mult < 1.0:
+        risk_amt *= _kl_mult
+        log.info(f"[SIZE_DOWN] {symbol} {_kl_note}（risk {risk_amt:.2f}U）")
+
     sl_pct   = decision.get("sl_pct", 0.015)
     # LLM 有時回傳百分比（如 3.8）而非小數（0.038），自動修正
     if sl_pct > 1:
@@ -2680,6 +2896,7 @@ def _close_position(state: dict, close: dict):
               "equity_after": state["equity"],
               "exited_at": datetime.now(TZ8).isoformat()}
     save_trade(trade)
+    _check_trade_milestone(state)
     (REFLECTION_DIR / f"{pos['id']}.json").write_text(
         json.dumps({**trade, "what_went_right": right,
                     "what_went_wrong": wrong, "lesson": lesson},
@@ -2981,17 +3198,24 @@ async def scan_loop():
                     continue
 
                 # ── 訊號記憶冷卻：同幣同理由 30 分鐘內不重複打 API ──
-                import time as _time
+                # 2026-09-05 修復：filter_reason 常內嵌即時變動的量比數字，例如
+                # 「量縮極致(0.04x)」下一輪變成「量縮極致(0.32x)」，逐字比對
+                # 永遠判定「理由不同」，30分鐘冷卻形同虛設。實測 BTC/ETH/SOL
+                # 在「持續量縮壓縮中」的盤整期被每5~7分鐘重問一次，連燒2小時、
+                # 單小時吃掉30萬+ tokens。修法：比對前先把數字剝掉，只比較
+                # 「情境類別」文字本身，數字變動不算理由改變。
+                import time as _time, re as _re
                 _now = _time.time()
+                _reason_key = _re.sub(r"[\d.]+", "#", filter_reason)  # 數字正規化
                 _mem = _SIGNAL_MEMORY.get(sym, {})
-                _same_reason = (_mem.get("reason") == filter_reason)
+                _same_reason = (_mem.get("reason_key") == _reason_key)
                 _within_cooldown = (_now - _mem.get("ts", 0)) < SIGNAL_COOLDOWN_SEC
                 if _same_reason and _within_cooldown:
                     log.debug(f"[COOLDOWN] {sym} 訊號未變({filter_reason[:30]})，"
                               f"冷卻中({int(SIGNAL_COOLDOWN_SEC/60)}分鐘)，跳過")
                     continue
                 # 訊號有變化 or 冷卻過了 → 更新記憶，放行
-                _SIGNAL_MEMORY[sym] = {"reason": filter_reason, "ts": _now}
+                _SIGNAL_MEMORY[sym] = {"reason_key": _reason_key, "ts": _now}
                 log.info(f"[FILTER] {sym} 放行 → Sam 思考中（訊號：{filter_reason}）")
 
                 decision = await _sam_decide(sig)
