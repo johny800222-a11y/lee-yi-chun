@@ -7,7 +7,11 @@ CONTENT_DIR = Path(__file__).resolve().parent / "content"
 
 HASHTAGS = {"overtime": "#社畜日常 #加班人生 #台北上班族 #下班後", "food": "#台灣美食 #巷弄美食 #在地小吃", "surprise": "#生活小確幸 #日常驚喜 #台灣日常", "weekend": "#週末日常 #台灣生活 #耍廢日常", "workmeltdown": "#職場日常 #上班族日常 #療癒美食", "latenight": "#深夜獨白 #夜貓子 #台灣日常", "growth": "#threads漲粉 #互追不退 #新手經營"}
 
-STREET_KEYWORDS = ["taipei,street", "taiwan,alley,street", "taipei,night,street", "taiwan,scooter,street", "taipei,mrt,station", "taiwan,night-market", "taipei,street,rain", "taiwan,convenience-store,night", "taipei,neon,street", "taiwan,old-street", "taipei,crosswalk,street", "taiwan,street,motorcycle", "taipei,alley,lantern", "taiwan,street,market"]
+# Kept to at most 2 tags each. LoremFlickr matches photos with ALL listed
+# tags (AND logic), so 3-tag combos (e.g. "taipei,alley,lantern") match a
+# tiny real photo pool and repeat visually even with a fresh random `lock`
+# value. Narrower 1-2 tag keywords have a much bigger underlying pool.
+STREET_KEYWORDS = ["taipei", "taiwan", "taipei,street", "taiwan,night", "taipei,rain", "taiwan,scooter", "taipei,mrt", "night-market", "taipei,alley", "old-street", "taipei,neon", "convenience-store"]
 
 class ThreadsPublishError(Exception): pass
 
@@ -27,13 +31,14 @@ def taipei_weather_keyword():
         code = resp.json()["current"]["weather_code"]
     except Exception:
         code = None
-    if code is None: return "taiwan,sky"
-    if code == 0: return "taiwan,blue-sky,sunny"
-    if code in (1, 2, 3): return "taiwan,cloudy,sky"
-    if code in (45, 48): return "taiwan,fog,sky"
-    if code in (95, 96, 99): return "taipei,storm,sky"
-    if 51 <= code <= 67 or 80 <= code <= 82: return "taipei,rain,sky"
-    return "taiwan,sky"
+    # Kept to at most 2 tags each, same reasoning as STREET_KEYWORDS above.
+    if code is None: return "taiwan"
+    if code == 0: return "taiwan,sunny"
+    if code in (1, 2, 3): return "taiwan,cloudy"
+    if code in (45, 48): return "taiwan,fog"
+    if code in (95, 96, 99): return "taipei,storm"
+    if 51 <= code <= 67 or 80 <= code <= 82: return "taipei,rain"
+    return "taiwan"
 
 def random_image_url():
     keywords = taipei_weather_keyword() if random.random() < 0.5 else random.choice(STREET_KEYWORDS)
