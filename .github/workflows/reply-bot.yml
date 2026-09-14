@@ -1,0 +1,92 @@
+name: "Threads - Reply Bot"
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r threads-bot-repo/scripts/requirements.txt
+
+      - name: Run reply bot
+        env:
+          THREADS_USER_ACCESS_TOKEN: ${{ secrets.THREADS_USER_ACCESS_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 threads-bot-repo/scripts/reply_bot.py
+
+      - name: Save reply bot state back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add threads-bot-repo/scripts/content/reply_state.json
+          if git diff --staged --quiet; then
+            echo "no state changes"
+          else
+            git commit -m "update reply bot state [skip ci]"
+            git push
+          fi
+
+      - name: 回報狀態到中控系統
+        if: always()
+        env:
+          CC_TOKEN: ${{ secrets.CONTROL_CENTER_TOKEN }}
+          PROJECT_KEY: threads
+          JOB_STATUS: ${{ job.status }}
+          CC_OWNER: johny800222-a11y
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone
+
+          token = os.environ["CC_TOKEN"]
+          owner = os.environ["CC_OWNER"]
+          project_key = os.environ["PROJECT_KEY"]
+          result = os.environ["JOB_STATUS"]
+          now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+          api = f"https://api.github.com/repos/{owner}/control-center/contents/status.json"
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+          }
+          req = urllib.request.Request(api, headers=headers)
+          with urllib.request.urlopen(req, timeout=15) as resp:
+              current = json.loads(resp.read())
+          sha = current["sha"]
+          data = json.loads(__import__("base64").b64decode(current["content"]).decode())
+          data["updated_at"] = now
+          proj = data.setdefault("projects", {}).setdefault(project_key, {})
+          proj["status"] = "idle"
+          proj["last_run"] = now
+          proj["last_result"] = result
+          new_content = json.dumps(data, ensure_ascii=False, indent=2)
+          payload = json.dumps({
+              "message": f"chore: update status from {project_key}",
+              "content": __import__("base64").b64encode(new_content.encode()).decode(),
+              "sha": sha,
+          }).encode()
+          req2 = urllib.request.Request(
+              api, data=payload, method="PUT",
+              headers={**headers, "Content-Type": "application/json"},
+          )
+          try:
+              urllib.request.urlopen(req2, timeout=15)
+              print(f"status.json 已更新（{project_key} -> {result}）")
+          except urllib.error.HTTPError as e:
+              print(f"更新失敗 HTTP {e.code}: {e.read().decode(errors='ignore')}")
+              raise
+          EOF
+
