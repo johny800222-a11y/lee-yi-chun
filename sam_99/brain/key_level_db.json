@@ -1554,19 +1554,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 1.418674,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 1.382275,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 71,
+    "signals": 72,
     "strong": 18,
     "retest_hold": 5,
-    "fake": 43,
-    "pending": 53,
+    "fake": 44,
+    "pending": 54,
     "real": 23,
-    "strong_rate": 25.4,
-    "retest_rate": 7.0,
-    "fake_rate": 60.6,
-    "real_rate": 32.4,
-    "runs_count": 70
+    "strong_rate": 25.0,
+    "retest_rate": 6.9,
+    "fake_rate": 61.1,
+    "real_rate": 31.9,
+    "runs_count": 71
   },
   "RUNE_1w": {
     "symbol": "RUNE",
@@ -2916,19 +2940,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.557193,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 82,
+    "signals": 83,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 79,
+    "fake": 80,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
-    "fake_rate": 96.3,
+    "fake_rate": 96.4,
     "real_rate": 0.0,
-    "runs_count": 79
+    "runs_count": 80
   },
   "STX_4h": {
     "symbol": "STX",
@@ -4451,19 +4492,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.25894,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.275159,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 83,
+    "signals": 85,
     "strong": 21,
     "retest_hold": 6,
-    "fake": 53,
+    "fake": 55,
     "pending": 46,
     "real": 27,
-    "strong_rate": 25.3,
-    "retest_rate": 7.2,
-    "fake_rate": 63.9,
-    "real_rate": 32.5,
-    "runs_count": 63
+    "strong_rate": 24.7,
+    "retest_rate": 7.1,
+    "fake_rate": 64.7,
+    "real_rate": 31.8,
+    "runs_count": 64
   },
   "UNI_1d": {
     "symbol": "UNI",
@@ -5837,19 +5902,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-07-31",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 4.17356,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-12",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 3.759814,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-27",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 4.575,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 93,
-    "strong": 28,
+    "signals": 96,
+    "strong": 29,
     "retest_hold": 7,
-    "fake": 54,
+    "fake": 56,
     "pending": 15,
-    "real": 35,
-    "strong_rate": 30.1,
-    "retest_rate": 7.5,
-    "fake_rate": 58.1,
-    "real_rate": 37.6,
-    "runs_count": 63
+    "real": 36,
+    "strong_rate": 30.2,
+    "retest_rate": 7.3,
+    "fake_rate": 58.3,
+    "real_rate": 37.5,
+    "runs_count": 64
   },
   "RUNE_4h": {
     "symbol": "RUNE",
@@ -7492,19 +7588,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 0.514068,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.5208,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 83,
     "strong": 3,
     "retest_hold": 6,
     "fake": 70,
-    "pending": 52,
+    "pending": 54,
     "real": 9,
     "strong_rate": 3.6,
     "retest_rate": 7.2,
     "fake_rate": 84.3,
     "real_rate": 10.8,
-    "runs_count": 71
+    "runs_count": 72
   },
   "AAVE_4h": {
     "symbol": "AAVE",
@@ -9209,19 +9329,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 123.535932,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 126.276667,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 130.15,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 99,
+    "signals": 100,
     "strong": 19,
     "retest_hold": 8,
-    "fake": 66,
-    "pending": 46,
+    "fake": 67,
+    "pending": 48,
     "real": 27,
-    "strong_rate": 19.2,
-    "retest_rate": 8.1,
-    "fake_rate": 66.7,
-    "real_rate": 27.3,
-    "runs_count": 70
+    "strong_rate": 19.0,
+    "retest_rate": 8.0,
+    "fake_rate": 67.0,
+    "real_rate": 27.0,
+    "runs_count": 71
   },
   "MANA_1w": {
     "symbol": "MANA",
@@ -10662,19 +10813,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 1,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 0.068272,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-17",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.070808,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2025-11-10",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.2223,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 95,
-    "strong": 60,
-    "retest_hold": 8,
-    "fake": 8,
+    "signals": 98,
+    "strong": 61,
+    "retest_hold": 9,
+    "fake": 9,
     "pending": 0,
-    "real": 68,
-    "strong_rate": 63.2,
-    "retest_rate": 8.4,
-    "fake_rate": 8.4,
-    "real_rate": 71.6,
-    "runs_count": 79
+    "real": 70,
+    "strong_rate": 62.2,
+    "retest_rate": 9.2,
+    "fake_rate": 9.2,
+    "real_rate": 71.4,
+    "runs_count": 80
   },
   "ETH_1d": {
     "symbol": "ETH",
@@ -12573,19 +12755,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-12",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 1887.91297,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 2505.318935,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 143,
+    "signals": 145,
     "strong": 63,
     "retest_hold": 8,
-    "fake": 48,
+    "fake": 50,
     "pending": 23,
     "real": 71,
-    "strong_rate": 44.1,
-    "retest_rate": 5.6,
-    "fake_rate": 33.6,
-    "real_rate": 49.7,
-    "runs_count": 75
+    "strong_rate": 43.4,
+    "retest_rate": 5.5,
+    "fake_rate": 34.5,
+    "real_rate": 49.0,
+    "runs_count": 76
   },
   "LTC_1d": {
     "symbol": "LTC",
@@ -14430,19 +14636,50 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 52.912844,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-30",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 47.940271,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-19",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 46.47,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 132,
+    "signals": 135,
     "strong": 15,
-    "retest_hold": 32,
-    "fake": 61,
+    "retest_hold": 33,
+    "fake": 63,
     "pending": 29,
-    "real": 47,
-    "strong_rate": 11.4,
-    "retest_rate": 24.2,
-    "fake_rate": 46.2,
+    "real": 48,
+    "strong_rate": 11.1,
+    "retest_rate": 24.4,
+    "fake_rate": 46.7,
     "real_rate": 35.6,
-    "runs_count": 73
+    "runs_count": 74
   },
   "GRASS_1w": {
     "symbol": "GRASS",
@@ -16245,19 +16482,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-18",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.476,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 148,
+    "signals": 149,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 148,
+    "fake": 149,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 78
+    "runs_count": 79
   },
   "BTC_1w": {
     "symbol": "BTC",
@@ -18139,19 +18393,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 2,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-04-20",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 77210.677328,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2025-11-03",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 107211.5,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 158,
+    "signals": 160,
     "strong": 0,
-    "retest_hold": 93,
+    "retest_hold": 95,
     "fake": 46,
     "pending": 0,
-    "real": 93,
+    "real": 95,
     "strong_rate": 0.0,
-    "retest_rate": 58.9,
-    "fake_rate": 29.1,
-    "real_rate": 58.9,
-    "runs_count": 79
+    "retest_rate": 59.4,
+    "fake_rate": 28.7,
+    "real_rate": 59.4,
+    "runs_count": 80
   },
   "ETC_1w": {
     "symbol": "ETC",
@@ -22205,19 +22483,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-13",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 88.965503,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 122.088227,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 158,
+    "signals": 160,
     "strong": 20,
-    "retest_hold": 19,
-    "fake": 101,
+    "retest_hold": 20,
+    "fake": 102,
     "pending": 26,
-    "real": 39,
-    "strong_rate": 12.7,
-    "retest_rate": 12.0,
-    "fake_rate": 63.9,
-    "real_rate": 24.7,
-    "runs_count": 72
+    "real": 40,
+    "strong_rate": 12.5,
+    "retest_rate": 12.5,
+    "fake_rate": 63.7,
+    "real_rate": 25.0,
+    "runs_count": 73
   },
   "RENDER_1w": {
     "symbol": "RENDER",
@@ -23427,19 +23729,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-03",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 1.366948,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 72,
+    "signals": 73,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 72,
+    "fake": 73,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 72
+    "runs_count": 73
   },
   "UNI_1w": {
     "symbol": "UNI",
@@ -25341,19 +25660,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.039599,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.03621,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 124,
+    "signals": 126,
     "strong": 39,
-    "retest_hold": 0,
-    "fake": 66,
+    "retest_hold": 1,
+    "fake": 67,
     "pending": 26,
-    "real": 39,
-    "strong_rate": 31.5,
-    "retest_rate": 0.0,
+    "real": 40,
+    "strong_rate": 31.0,
+    "retest_rate": 0.8,
     "fake_rate": 53.2,
-    "real_rate": 31.5,
-    "runs_count": 68
+    "real_rate": 31.7,
+    "runs_count": 69
   },
   "CRV_1d": {
     "symbol": "CRV",
@@ -26930,19 +27273,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-30",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.301104,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-08",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.2169,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.3471,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 123,
-    "strong": 39,
+    "signals": 126,
+    "strong": 40,
     "retest_hold": 4,
-    "fake": 78,
+    "fake": 80,
     "pending": 15,
-    "real": 43,
+    "real": 44,
     "strong_rate": 31.7,
-    "retest_rate": 3.3,
-    "fake_rate": 63.4,
-    "real_rate": 35.0,
-    "runs_count": 61
+    "retest_rate": 3.2,
+    "fake_rate": 63.5,
+    "real_rate": 34.9,
+    "runs_count": 62
   },
   "TRX_1w": {
     "symbol": "TRX",
@@ -29317,19 +29691,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-02-23",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.2812,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.349698,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-03-23",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.32084,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 231,
+    "signals": 234,
     "strong": 0,
-    "retest_hold": 8,
-    "fake": 223,
+    "retest_hold": 9,
+    "fake": 225,
     "pending": 0,
-    "real": 8,
+    "real": 9,
     "strong_rate": 0.0,
-    "retest_rate": 3.5,
-    "fake_rate": 96.5,
-    "real_rate": 3.5,
-    "runs_count": 77
+    "retest_rate": 3.8,
+    "fake_rate": 96.2,
+    "real_rate": 3.8,
+    "runs_count": 78
   },
   "DASH_1w": {
     "symbol": "DASH",
@@ -29610,14 +30015,31 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-08-31",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 58.12,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 11,
     "real": 0,
     "fake": 9,
-    "pending": 8,
+    "pending": 9,
     "real_rate": 0.0,
-    "runs_count": 15,
+    "runs_count": 16,
     "strong": 0,
     "retest_hold": 0,
     "strong_rate": 0.0,
@@ -31354,19 +31776,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 3,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 53.688456,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 54.28,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 53.24,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 88,
     "strong": 9,
     "retest_hold": 13,
     "fake": 61,
-    "pending": 54,
+    "pending": 57,
     "real": 22,
     "strong_rate": 10.2,
     "retest_rate": 14.8,
     "fake_rate": 69.3,
     "real_rate": 25.0,
-    "runs_count": 75
+    "runs_count": 76
   },
   "BNB_1d": {
     "symbol": "BNB",
@@ -32798,19 +33251,36 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 721.526476,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 85,
     "strong": 20,
     "retest_hold": 20,
     "fake": 32,
-    "pending": 27,
+    "pending": 28,
     "real": 40,
     "strong_rate": 23.5,
     "retest_rate": 23.5,
     "fake_rate": 37.6,
     "real_rate": 47.1,
-    "runs_count": 66
+    "runs_count": 67
   },
   "DOGE_4h": {
     "symbol": "DOGE",
@@ -37435,19 +37905,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-06-15",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.2662,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 103,
+    "signals": 104,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 99,
+    "fake": 100,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
-    "fake_rate": 96.1,
+    "fake_rate": 96.2,
     "real_rate": 0.0,
-    "runs_count": 59
+    "runs_count": 60
   },
   "AVAX_4h": {
     "symbol": "AVAX",
@@ -38922,19 +39409,57 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 7.502542,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 7.388172,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 7.459,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 7.356,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 64,
+    "signals": 66,
     "strong": 9,
     "retest_hold": 6,
-    "fake": 45,
-    "pending": 59,
+    "fake": 47,
+    "pending": 61,
     "real": 15,
-    "strong_rate": 14.1,
-    "retest_rate": 9.4,
-    "fake_rate": 70.3,
-    "real_rate": 23.4,
-    "runs_count": 62
+    "strong_rate": 13.6,
+    "retest_rate": 9.1,
+    "fake_rate": 71.2,
+    "real_rate": 22.7,
+    "runs_count": 63
   },
   "ICP_1d": {
     "symbol": "ICP",
@@ -40561,19 +41086,36 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-05",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 2.542,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 91,
-    "strong": 7,
+    "signals": 92,
+    "strong": 8,
     "retest_hold": 16,
     "fake": 67,
     "pending": 37,
-    "real": 23,
-    "strong_rate": 7.7,
-    "retest_rate": 17.6,
-    "fake_rate": 73.6,
-    "real_rate": 25.3,
-    "runs_count": 74
+    "real": 24,
+    "strong_rate": 8.7,
+    "retest_rate": 17.4,
+    "fake_rate": 72.8,
+    "real_rate": 26.1,
+    "runs_count": 75
   },
   "ETC_4h": {
     "symbol": "ETC",
@@ -42172,19 +42714,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 8.508433,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 7.582,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 75,
+    "signals": 77,
     "strong": 1,
     "retest_hold": 9,
-    "fake": 65,
+    "fake": 67,
     "pending": 55,
     "real": 10,
     "strong_rate": 1.3,
-    "retest_rate": 12.0,
-    "fake_rate": 86.7,
-    "real_rate": 13.3,
-    "runs_count": 70
+    "retest_rate": 11.7,
+    "fake_rate": 87.0,
+    "real_rate": 13.0,
+    "runs_count": 71
   },
   "GRASS_1d": {
     "symbol": "GRASS",
@@ -43619,19 +44185,57 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 3,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-08-23",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.366512,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-08",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.332296,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.3318,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.3208,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 75,
+    "signals": 78,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 75,
-    "pending": 35,
+    "fake": 78,
+    "pending": 36,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 67
+    "runs_count": 68
   },
   "BTC_1d": {
     "symbol": "BTC",
@@ -47099,19 +47703,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-16",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.167708,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.215516,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 113,
+    "signals": 115,
     "strong": 29,
     "retest_hold": 0,
-    "fake": 80,
+    "fake": 82,
     "pending": 23,
     "real": 29,
-    "strong_rate": 25.7,
+    "strong_rate": 25.2,
     "retest_rate": 0.0,
-    "fake_rate": 70.8,
-    "real_rate": 25.7,
-    "runs_count": 72
+    "fake_rate": 71.3,
+    "real_rate": 25.2,
+    "runs_count": 73
   },
   "DASH_1d": {
     "symbol": "DASH",
@@ -48704,19 +49332,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 3,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-06",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 12.346316,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-12",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 30.744,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-20",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 32.31,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 119,
-    "strong": 53,
+    "signals": 122,
+    "strong": 56,
     "retest_hold": 0,
     "fake": 63,
     "pending": 21,
-    "real": 53,
-    "strong_rate": 44.5,
+    "real": 56,
+    "strong_rate": 45.9,
     "retest_rate": 0.0,
-    "fake_rate": 52.9,
-    "real_rate": 44.5,
-    "runs_count": 62
+    "fake_rate": 51.6,
+    "real_rate": 45.9,
+    "runs_count": 63
   },
   "VVV_1w": {
     "symbol": "VVV",
@@ -50552,19 +51211,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-11-17",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": -4.227375,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-01-26",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 2.70638,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 154,
-    "strong": 60,
+    "signals": 156,
+    "strong": 61,
     "retest_hold": 22,
-    "fake": 38,
+    "fake": 39,
     "pending": 0,
-    "real": 82,
-    "strong_rate": 39.0,
-    "retest_rate": 14.3,
-    "fake_rate": 24.7,
+    "real": 83,
+    "strong_rate": 39.1,
+    "retest_rate": 14.1,
+    "fake_rate": 25.0,
     "real_rate": 53.2,
-    "runs_count": 77
+    "runs_count": 78
   },
   "CRV_4h": {
     "symbol": "CRV",
@@ -52341,19 +53024,36 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.3427,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 96,
-    "strong": 12,
+    "signals": 97,
+    "strong": 13,
     "retest_hold": 15,
     "fake": 64,
     "pending": 58,
-    "real": 27,
-    "strong_rate": 12.5,
-    "retest_rate": 15.6,
-    "fake_rate": 66.7,
-    "real_rate": 28.1,
-    "runs_count": 71
+    "real": 28,
+    "strong_rate": 13.4,
+    "retest_rate": 15.5,
+    "fake_rate": 66.0,
+    "real_rate": 28.9,
+    "runs_count": 72
   },
   "VVV_1d": {
     "symbol": "VVV",
@@ -54274,19 +54974,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 2,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-09",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 9.487083,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-11",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 11.566097,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-17",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 12.647,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 146,
-    "strong": 34,
+    "signals": 149,
+    "strong": 36,
     "retest_hold": 1,
-    "fake": 111,
+    "fake": 112,
     "pending": 23,
-    "real": 35,
-    "strong_rate": 23.3,
+    "real": 37,
+    "strong_rate": 24.2,
     "retest_rate": 0.7,
-    "fake_rate": 76.0,
-    "real_rate": 24.0,
-    "runs_count": 75
+    "fake_rate": 75.2,
+    "real_rate": 24.8,
+    "runs_count": 76
   },
   "VET_1w": {
     "symbol": "VET",
@@ -57159,19 +57890,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.335231,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.33899,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 84,
+    "signals": 85,
     "strong": 11,
     "retest_hold": 11,
-    "fake": 58,
-    "pending": 46,
+    "fake": 59,
+    "pending": 47,
     "real": 22,
-    "strong_rate": 13.1,
-    "retest_rate": 13.1,
-    "fake_rate": 69.0,
-    "real_rate": 26.2,
-    "runs_count": 70
+    "strong_rate": 12.9,
+    "retest_rate": 12.9,
+    "fake_rate": 69.4,
+    "real_rate": 25.9,
+    "runs_count": 71
   },
   "CHZ_1d": {
     "symbol": "CHZ",
@@ -60708,19 +61463,50 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 6.657956,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 6.104425,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-09",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 6.709,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 89,
+    "signals": 92,
     "strong": 9,
-    "retest_hold": 27,
-    "fake": 46,
+    "retest_hold": 28,
+    "fake": 48,
     "pending": 45,
-    "real": 36,
-    "strong_rate": 10.1,
-    "retest_rate": 30.3,
-    "fake_rate": 51.7,
-    "real_rate": 40.4,
-    "runs_count": 67
+    "real": 37,
+    "strong_rate": 9.8,
+    "retest_rate": 30.4,
+    "fake_rate": 52.2,
+    "real_rate": 40.2,
+    "runs_count": 68
   },
   "BTC_4h": {
     "symbol": "BTC",
@@ -62172,19 +62958,67 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-14",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 77320.899293,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 77477.4,
+            "result": "pending"
+          }
+        ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 77320.899293,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 77477.4,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 68,
     "strong": 10,
     "retest_hold": 2,
     "fake": 52,
-    "pending": 51,
+    "pending": 55,
     "real": 12,
     "strong_rate": 14.7,
     "retest_rate": 2.9,
     "fake_rate": 76.5,
     "real_rate": 17.6,
-    "runs_count": 63
+    "runs_count": 65
   },
   "FIL_1w": {
     "symbol": "FIL",
@@ -63518,19 +64352,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-06-16",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 2.111,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 81,
+    "signals": 82,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 81,
+    "fake": 82,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 78
+    "runs_count": 79
   },
   "HYPE_1w": {
     "symbol": "HYPE",
@@ -65412,19 +66263,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-25",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 67.247703,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-05-18",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 50.238,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 158,
-    "strong": 91,
+    "signals": 160,
+    "strong": 92,
     "retest_hold": 0,
-    "fake": 29,
+    "fake": 30,
     "pending": 0,
-    "real": 91,
-    "strong_rate": 57.6,
+    "real": 92,
+    "strong_rate": 57.5,
     "retest_rate": 0.0,
-    "fake_rate": 18.4,
-    "real_rate": 57.6,
-    "runs_count": 79
+    "fake_rate": 18.8,
+    "real_rate": 57.5,
+    "runs_count": 80
   },
   "XMR_1d": {
     "symbol": "XMR",
@@ -66777,19 +67652,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-05",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 555.815714,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 522.20417,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 84,
+    "signals": 85,
     "strong": 5,
     "retest_hold": 46,
-    "fake": 32,
-    "pending": 20,
+    "fake": 33,
+    "pending": 21,
     "real": 51,
-    "strong_rate": 6.0,
-    "retest_rate": 54.8,
-    "fake_rate": 38.1,
-    "real_rate": 60.7,
-    "runs_count": 63
+    "strong_rate": 5.9,
+    "retest_rate": 54.1,
+    "fake_rate": 38.8,
+    "real_rate": 60.0,
+    "runs_count": 64
   },
   "CHZ_1w": {
     "symbol": "CHZ",
@@ -69133,19 +70032,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-11-17",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 0.030641,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-04-20",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.04562,
+            "result": "fake"
+          },
+          {
+            "ts": "2025-10-06",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.03748,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 228,
-    "strong": 59,
+    "signals": 231,
+    "strong": 60,
     "retest_hold": 0,
-    "fake": 152,
+    "fake": 154,
     "pending": 0,
-    "real": 59,
-    "strong_rate": 25.9,
+    "real": 60,
+    "strong_rate": 26.0,
     "retest_rate": 0.0,
     "fake_rate": 66.7,
-    "real_rate": 25.9,
-    "runs_count": 76
+    "real_rate": 26.0,
+    "runs_count": 77
   },
   "DOT_1d": {
     "symbol": "DOT",
@@ -70987,19 +71917,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 3,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-04",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.853673,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-30",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.8279,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.8697,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 135,
+    "signals": 138,
     "strong": 24,
     "retest_hold": 2,
-    "fake": 91,
+    "fake": 94,
     "pending": 27,
     "real": 26,
-    "strong_rate": 17.8,
-    "retest_rate": 1.5,
-    "fake_rate": 67.4,
-    "real_rate": 19.3,
-    "runs_count": 72
+    "strong_rate": 17.4,
+    "retest_rate": 1.4,
+    "fake_rate": 68.1,
+    "real_rate": 18.8,
+    "runs_count": 73
   },
   "XRP_1w": {
     "symbol": "XRP",
@@ -72902,19 +73863,36 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 1.277,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 144,
+    "signals": 145,
     "strong": 3,
-    "retest_hold": 60,
+    "retest_hold": 61,
     "fake": 49,
     "pending": 17,
-    "real": 63,
+    "real": 64,
     "strong_rate": 2.1,
-    "retest_rate": 41.7,
-    "fake_rate": 34.0,
-    "real_rate": 43.8,
-    "runs_count": 79
+    "retest_rate": 42.1,
+    "fake_rate": 33.8,
+    "real_rate": 44.1,
+    "runs_count": 80
   },
   "SOL_1d": {
     "symbol": "SOL",
@@ -76507,19 +77485,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 1.340109,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-08-06",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 1.0526,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 133,
-    "strong": 61,
+    "signals": 134,
+    "strong": 62,
     "retest_hold": 4,
     "fake": 54,
-    "pending": 27,
-    "real": 65,
-    "strong_rate": 45.9,
+    "pending": 28,
+    "real": 66,
+    "strong_rate": 46.3,
     "retest_rate": 3.0,
-    "fake_rate": 40.6,
-    "real_rate": 48.9,
-    "runs_count": 64
+    "fake_rate": 40.3,
+    "real_rate": 49.3,
+    "runs_count": 65
   },
   "DOT_4h": {
     "symbol": "DOT",
@@ -78328,19 +79330,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 1.010829,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 1.0692,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 102,
+    "signals": 103,
     "strong": 9,
-    "retest_hold": 23,
+    "retest_hold": 24,
     "fake": 69,
-    "pending": 51,
-    "real": 32,
-    "strong_rate": 8.8,
-    "retest_rate": 22.5,
-    "fake_rate": 67.6,
-    "real_rate": 31.4,
-    "runs_count": 75
+    "pending": 52,
+    "real": 33,
+    "strong_rate": 8.7,
+    "retest_rate": 23.3,
+    "fake_rate": 67.0,
+    "real_rate": 32.0,
+    "runs_count": 76
   },
   "DASH_4h": {
     "symbol": "DASH",
@@ -81569,19 +82595,36 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 251.2,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 70,
+    "signals": 71,
     "strong": 13,
-    "retest_hold": 3,
+    "retest_hold": 4,
     "fake": 48,
     "pending": 57,
-    "real": 16,
-    "strong_rate": 18.6,
-    "retest_rate": 4.3,
-    "fake_rate": 68.6,
-    "real_rate": 22.9,
-    "runs_count": 68
+    "real": 17,
+    "strong_rate": 18.3,
+    "retest_rate": 5.6,
+    "fake_rate": 67.6,
+    "real_rate": 23.9,
+    "runs_count": 69
   },
   "ZEC_1d": {
     "symbol": "ZEC",
@@ -83360,19 +84403,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 3,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-07-29",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 196.101301,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-09",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 517.892375,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-19",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 531.91,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 139,
-    "strong": 78,
+    "signals": 142,
+    "strong": 81,
     "retest_hold": 0,
     "fake": 46,
     "pending": 11,
-    "real": 78,
-    "strong_rate": 56.1,
+    "real": 81,
+    "strong_rate": 57.0,
     "retest_rate": 0.0,
-    "fake_rate": 33.1,
-    "real_rate": 56.1,
-    "runs_count": 74
+    "fake_rate": 32.4,
+    "real_rate": 57.0,
+    "runs_count": 75
   },
   "VET_1d": {
     "symbol": "VET",
@@ -85239,19 +86313,57 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 4,
+        "strong": 1,
+        "retest_hold": 1,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-16",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.004555,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-27",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.007099,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-20",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.00488,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-12",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.004581,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 135,
-    "strong": 22,
-    "retest_hold": 36,
-    "fake": 56,
+    "signals": 139,
+    "strong": 23,
+    "retest_hold": 37,
+    "fake": 58,
     "pending": 32,
-    "real": 58,
-    "strong_rate": 16.3,
-    "retest_rate": 26.7,
-    "fake_rate": 41.5,
-    "real_rate": 43.0,
-    "runs_count": 71
+    "real": 60,
+    "strong_rate": 16.5,
+    "retest_rate": 26.6,
+    "fake_rate": 41.7,
+    "real_rate": 43.2,
+    "runs_count": 72
   },
   "ZEC_4h": {
     "symbol": "ZEC",
@@ -87064,19 +88176,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 1072.629672,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 1112.395263,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 1104.08,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 112,
+    "signals": 114,
     "strong": 21,
     "retest_hold": 4,
-    "fake": 85,
-    "pending": 44,
+    "fake": 87,
+    "pending": 45,
     "real": 25,
-    "strong_rate": 18.8,
-    "retest_rate": 3.6,
-    "fake_rate": 75.9,
-    "real_rate": 22.3,
-    "runs_count": 73
+    "strong_rate": 18.4,
+    "retest_rate": 3.5,
+    "fake_rate": 76.3,
+    "real_rate": 21.9,
+    "runs_count": 74
   },
   "ATOM_1w": {
     "symbol": "ATOM",
@@ -88468,19 +89611,36 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-10-06",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 3.545,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 79,
+    "signals": 80,
     "strong": 0,
-    "retest_hold": 60,
+    "retest_hold": 61,
     "fake": 0,
     "pending": 9,
-    "real": 60,
+    "real": 61,
     "strong_rate": 0.0,
-    "retest_rate": 75.9,
+    "retest_rate": 76.2,
     "fake_rate": 0.0,
-    "real_rate": 75.9,
-    "runs_count": 79
+    "real_rate": 76.2,
+    "runs_count": 80
   },
   "RUNE_1d": {
     "symbol": "RUNE",
@@ -90133,19 +91293,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-12",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 0.510654,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.499,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-08-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.4251,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 114,
+    "signals": 115,
     "strong": 0,
     "retest_hold": 36,
-    "fake": 76,
-    "pending": 29,
+    "fake": 77,
+    "pending": 31,
     "real": 36,
     "strong_rate": 0.0,
-    "retest_rate": 31.6,
-    "fake_rate": 66.7,
-    "real_rate": 31.6,
-    "runs_count": 66
+    "retest_rate": 31.3,
+    "fake_rate": 67.0,
+    "real_rate": 31.3,
+    "runs_count": 67
   },
   "EIGEN_4h": {
     "symbol": "EIGEN",
@@ -91971,19 +93162,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 0.201127,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.2065,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 97,
     "strong": 9,
     "retest_hold": 9,
     "fake": 70,
-    "pending": 60,
+    "pending": 62,
     "real": 18,
     "strong_rate": 9.3,
     "retest_rate": 9.3,
     "fake_rate": 72.2,
     "real_rate": 18.6,
-    "runs_count": 74
+    "runs_count": 75
   },
   "NEAR_4h": {
     "symbol": "NEAR",
@@ -93899,19 +95114,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 2.573316,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 2.422,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 2.326,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 119,
+    "signals": 121,
     "strong": 12,
     "retest_hold": 10,
-    "fake": 89,
-    "pending": 49,
+    "fake": 91,
+    "pending": 50,
     "real": 22,
-    "strong_rate": 10.1,
-    "retest_rate": 8.4,
-    "fake_rate": 74.8,
-    "real_rate": 18.5,
-    "runs_count": 75
+    "strong_rate": 9.9,
+    "retest_rate": 8.3,
+    "fake_rate": 75.2,
+    "real_rate": 18.2,
+    "runs_count": 76
   },
   "ZEC_1w": {
     "symbol": "ZEC",
@@ -95705,19 +96951,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-18",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 619.937179,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 148,
+    "signals": 149,
     "strong": 54,
     "retest_hold": 0,
-    "fake": 77,
+    "fake": 78,
     "pending": 0,
     "real": 54,
-    "strong_rate": 36.5,
+    "strong_rate": 36.2,
     "retest_rate": 0.0,
-    "fake_rate": 52.0,
-    "real_rate": 36.5,
-    "runs_count": 77
+    "fake_rate": 52.3,
+    "real_rate": 36.2,
+    "runs_count": 78
   },
   "HYPE_4h": {
     "symbol": "HYPE",
@@ -97478,19 +98741,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 78.269955,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 80.773,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 78.346,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 95,
+    "signals": 96,
     "strong": 9,
     "retest_hold": 12,
-    "fake": 66,
-    "pending": 54,
+    "fake": 67,
+    "pending": 56,
     "real": 21,
-    "strong_rate": 9.5,
-    "retest_rate": 12.6,
-    "fake_rate": 69.5,
-    "real_rate": 22.1,
-    "runs_count": 73
+    "strong_rate": 9.4,
+    "retest_rate": 12.5,
+    "fake_rate": 69.8,
+    "real_rate": 21.9,
+    "runs_count": 74
   },
   "ICP_1w": {
     "symbol": "ICP",
@@ -99181,19 +100475,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-09-22",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 4.312,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 127,
+    "signals": 128,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 127,
+    "fake": 128,
     "pending": 5,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 78
+    "runs_count": 79
   },
   "LINK_4h": {
     "symbol": "LINK",
@@ -100882,19 +102193,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 11.325295,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 11.621,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 11.554,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 91,
+    "signals": 92,
     "strong": 9,
     "retest_hold": 10,
-    "fake": 68,
-    "pending": 49,
+    "fake": 69,
+    "pending": 51,
     "real": 19,
-    "strong_rate": 9.9,
-    "retest_rate": 11.0,
-    "fake_rate": 74.7,
-    "real_rate": 20.9,
-    "runs_count": 72
+    "strong_rate": 9.8,
+    "retest_rate": 10.9,
+    "fake_rate": 75.0,
+    "real_rate": 20.7,
+    "runs_count": 73
   },
   "ADA_1d": {
     "symbol": "ADA",
@@ -102780,19 +104122,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 0.203717,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-08-02",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.1808,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 163,
-    "strong": 37,
+    "signals": 164,
+    "strong": 38,
     "retest_hold": 26,
     "fake": 64,
-    "pending": 4,
-    "real": 63,
-    "strong_rate": 22.7,
-    "retest_rate": 16.0,
-    "fake_rate": 39.3,
-    "real_rate": 38.7,
-    "runs_count": 73
+    "pending": 5,
+    "real": 64,
+    "strong_rate": 23.2,
+    "retest_rate": 15.9,
+    "fake_rate": 39.0,
+    "real_rate": 39.0,
+    "runs_count": 74
   },
   "BNB_4h": {
     "symbol": "BNB",
@@ -104317,19 +105683,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 0,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 724.307625,
+            "result": "pending"
+          }
+        ]
       }
     ],
     "signals": 70,
     "strong": 12,
     "retest_hold": 1,
     "fake": 54,
-    "pending": 55,
+    "pending": 56,
     "real": 13,
     "strong_rate": 17.1,
     "retest_rate": 1.4,
     "fake_rate": 77.1,
     "real_rate": 18.6,
-    "runs_count": 66
+    "runs_count": 67
   },
   "MANA_4h": {
     "symbol": "MANA",
@@ -105861,19 +107244,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.075494,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.072441,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 72,
-    "strong": 5,
+    "signals": 74,
+    "strong": 6,
     "retest_hold": 0,
-    "fake": 60,
+    "fake": 61,
     "pending": 54,
-    "real": 5,
-    "strong_rate": 6.9,
+    "real": 6,
+    "strong_rate": 8.1,
     "retest_rate": 0.0,
-    "fake_rate": 83.3,
-    "real_rate": 6.9,
-    "runs_count": 66
+    "fake_rate": 82.4,
+    "real_rate": 8.1,
+    "runs_count": 67
   },
   "FIL_1d": {
     "symbol": "FIL",
@@ -107247,19 +108654,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-08-30",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.6748,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.925188,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.86,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 77,
+    "signals": 78,
     "strong": 0,
     "retest_hold": 4,
-    "fake": 73,
-    "pending": 31,
+    "fake": 74,
+    "pending": 33,
     "real": 4,
     "strong_rate": 0.0,
-    "retest_rate": 5.2,
-    "fake_rate": 94.8,
-    "real_rate": 5.2,
-    "runs_count": 63
+    "retest_rate": 5.1,
+    "fake_rate": 94.9,
+    "real_rate": 5.1,
+    "runs_count": 64
   },
   "VET_4h": {
     "symbol": "VET",
@@ -108923,19 +110361,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-07",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.007041,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.007165,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 96,
+    "signals": 98,
     "strong": 17,
-    "retest_hold": 3,
-    "fake": 74,
+    "retest_hold": 4,
+    "fake": 75,
     "pending": 43,
-    "real": 20,
-    "strong_rate": 17.7,
-    "retest_rate": 3.1,
-    "fake_rate": 77.1,
-    "real_rate": 20.8,
-    "runs_count": 70
+    "real": 21,
+    "strong_rate": 17.3,
+    "retest_rate": 4.1,
+    "fake_rate": 76.5,
+    "real_rate": 21.4,
+    "runs_count": 71
   },
   "ADA_1w": {
     "symbol": "ADA",
@@ -111769,19 +113231,57 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 4,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 3,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.265983,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 0.176224,
+            "result": "fake"
+          },
+          {
+            "ts": "2025-08-11",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.8641,
+            "result": "fake"
+          },
+          {
+            "ts": "2025-11-10",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.5092,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 294,
-    "strong": 60,
+    "signals": 298,
+    "strong": 61,
     "retest_hold": 0,
-    "fake": 215,
+    "fake": 218,
     "pending": 0,
-    "real": 60,
-    "strong_rate": 20.4,
+    "real": 61,
+    "strong_rate": 20.5,
     "retest_rate": 0.0,
-    "fake_rate": 73.1,
-    "real_rate": 20.4,
-    "runs_count": 79
+    "fake_rate": 73.2,
+    "real_rate": 20.5,
+    "runs_count": 80
   },
   "CRV_1w": {
     "symbol": "CRV",
@@ -114466,19 +115966,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-24",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 98.36,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 76.63,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 186,
-    "strong": 60,
-    "retest_hold": 1,
+    "signals": 188,
+    "strong": 61,
+    "retest_hold": 2,
     "fake": 106,
     "pending": 17,
-    "real": 61,
-    "strong_rate": 32.3,
-    "retest_rate": 0.5,
-    "fake_rate": 57.0,
-    "real_rate": 32.8,
-    "runs_count": 79
+    "real": 63,
+    "strong_rate": 32.4,
+    "retest_rate": 1.1,
+    "fake_rate": 56.4,
+    "real_rate": 33.5,
+    "runs_count": 80
   },
   "VVV_4h": {
     "symbol": "VVV",
@@ -116294,19 +117818,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 21.780484,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-15",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 22.479806,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 22.842,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 107,
+    "signals": 108,
     "strong": 17,
     "retest_hold": 11,
-    "fake": 79,
-    "pending": 51,
+    "fake": 80,
+    "pending": 53,
     "real": 28,
-    "strong_rate": 15.9,
-    "retest_rate": 10.3,
-    "fake_rate": 73.8,
-    "real_rate": 26.2,
-    "runs_count": 72
+    "strong_rate": 15.7,
+    "retest_rate": 10.2,
+    "fake_rate": 74.1,
+    "real_rate": 25.9,
+    "runs_count": 73
   },
   "ETH_4h": {
     "symbol": "ETH",
@@ -120621,19 +122176,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-18",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 6.409077,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 7.618477,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-20",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 6.879,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 106,
-    "strong": 21,
+    "signals": 109,
+    "strong": 22,
     "retest_hold": 0,
-    "fake": 83,
+    "fake": 85,
     "pending": 23,
-    "real": 21,
-    "strong_rate": 19.8,
+    "real": 22,
+    "strong_rate": 20.2,
     "retest_rate": 0.0,
-    "fake_rate": 78.3,
-    "real_rate": 19.8,
-    "runs_count": 64
+    "fake_rate": 78.0,
+    "real_rate": 20.2,
+    "runs_count": 65
   },
   "DOT_1w": {
     "symbol": "DOT",
@@ -122142,19 +123728,36 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2025-10-06",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 3.608,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 104,
-    "strong": 60,
+    "signals": 105,
+    "strong": 61,
     "retest_hold": 0,
     "fake": 26,
     "pending": 2,
-    "real": 60,
-    "strong_rate": 57.7,
+    "real": 61,
+    "strong_rate": 58.1,
     "retest_rate": 0.0,
-    "fake_rate": 25.0,
-    "real_rate": 57.7,
-    "runs_count": 78
+    "fake_rate": 24.8,
+    "real_rate": 58.1,
+    "runs_count": 79
   },
   "BNB_1w": {
     "symbol": "BNB",
@@ -124666,19 +126269,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-25",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 687.86,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-22",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 572.0,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 235,
+    "signals": 237,
     "strong": 0,
     "retest_hold": 8,
-    "fake": 211,
+    "fake": 213,
     "pending": 13,
     "real": 8,
     "strong_rate": 0.0,
     "retest_rate": 3.4,
-    "fake_rate": 89.8,
+    "fake_rate": 89.9,
     "real_rate": 3.4,
-    "runs_count": 79
+    "runs_count": 80
   },
   "ATOM_1d": {
     "symbol": "ATOM",
@@ -126331,19 +127958,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-01",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 1.188679,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-09-01",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 1.462934,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 1.721,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 113,
-    "strong": 3,
+    "signals": 116,
+    "strong": 4,
     "retest_hold": 22,
-    "fake": 88,
+    "fake": 90,
     "pending": 22,
-    "real": 25,
-    "strong_rate": 2.7,
-    "retest_rate": 19.5,
-    "fake_rate": 77.9,
-    "real_rate": 22.1,
-    "runs_count": 72
+    "real": 26,
+    "strong_rate": 3.4,
+    "retest_rate": 19.0,
+    "fake_rate": 77.6,
+    "real_rate": 22.4,
+    "runs_count": 73
   },
   "XLM_1w": {
     "symbol": "XLM",
@@ -128944,19 +130602,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-18",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.148789,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-05-25",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.233491,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-01-26",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.19987,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 262,
-    "strong": 60,
+    "signals": 265,
+    "strong": 61,
     "retest_hold": 52,
-    "fake": 114,
+    "fake": 116,
     "pending": 0,
-    "real": 112,
-    "strong_rate": 22.9,
-    "retest_rate": 19.8,
-    "fake_rate": 43.5,
-    "real_rate": 42.7,
-    "runs_count": 78
+    "real": 113,
+    "strong_rate": 23.0,
+    "retest_rate": 19.6,
+    "fake_rate": 43.8,
+    "real_rate": 42.6,
+    "runs_count": 79
   },
   "XMR_4h": {
     "symbol": "XMR",
@@ -130653,19 +132342,36 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-12",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 542.495499,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 90,
+    "signals": 91,
     "strong": 9,
     "retest_hold": 3,
-    "fake": 73,
+    "fake": 74,
     "pending": 54,
     "real": 12,
-    "strong_rate": 10.0,
+    "strong_rate": 9.9,
     "retest_rate": 3.3,
-    "fake_rate": 81.1,
-    "real_rate": 13.3,
-    "runs_count": 70
+    "fake_rate": 81.3,
+    "real_rate": 13.2,
+    "runs_count": 71
   },
   "XRP_4h": {
     "symbol": "XRP",
@@ -132423,19 +134129,50 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 1.344584,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 1.360349,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 1.3743,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 97,
+    "signals": 98,
     "strong": 12,
     "retest_hold": 1,
-    "fake": 77,
-    "pending": 50,
+    "fake": 78,
+    "pending": 52,
     "real": 13,
-    "strong_rate": 12.4,
+    "strong_rate": 12.2,
     "retest_rate": 1.0,
-    "fake_rate": 79.4,
-    "real_rate": 13.4,
-    "runs_count": 74
+    "fake_rate": 79.6,
+    "real_rate": 13.3,
+    "runs_count": 75
   },
   "FIL_4h": {
     "symbol": "FIL",
@@ -133961,19 +135698,50 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-06",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.199522,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-09-11",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.7802,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.8276,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 81,
-    "strong": 9,
+    "signals": 83,
+    "strong": 10,
     "retest_hold": 11,
-    "fake": 56,
-    "pending": 44,
-    "real": 20,
-    "strong_rate": 11.1,
-    "retest_rate": 13.6,
-    "fake_rate": 69.1,
-    "real_rate": 24.7,
-    "runs_count": 66
+    "fake": 57,
+    "pending": 45,
+    "real": 21,
+    "strong_rate": 12.0,
+    "retest_rate": 13.3,
+    "fake_rate": 68.7,
+    "real_rate": 25.3,
+    "runs_count": 67
   },
   "LINK_1w": {
     "symbol": "LINK",
@@ -135764,19 +137532,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 2,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-17",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 10.87,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-01-19",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 11.728,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 131,
+    "signals": 133,
     "strong": 0,
-    "retest_hold": 68,
+    "retest_hold": 70,
     "fake": 41,
     "pending": 14,
-    "real": 68,
+    "real": 70,
     "strong_rate": 0.0,
-    "retest_rate": 51.9,
-    "fake_rate": 31.3,
-    "real_rate": 51.9,
-    "runs_count": 79
+    "retest_rate": 52.6,
+    "fake_rate": 30.8,
+    "real_rate": 52.6,
+    "runs_count": 80
   },
   "GRASS_4h": {
     "symbol": "GRASS",
@@ -137546,19 +139338,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.331262,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.3228,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 88,
+    "signals": 89,
     "strong": 10,
     "retest_hold": 4,
-    "fake": 73,
-    "pending": 58,
+    "fake": 74,
+    "pending": 59,
     "real": 14,
-    "strong_rate": 11.4,
+    "strong_rate": 11.2,
     "retest_rate": 4.5,
-    "fake_rate": 83.0,
-    "real_rate": 15.9,
-    "runs_count": 76
+    "fake_rate": 83.1,
+    "real_rate": 15.7,
+    "runs_count": 77
   },
   "MANA_1d": {
     "symbol": "MANA",
@@ -139337,19 +141153,36 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 0.070982,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 129,
+    "signals": 130,
     "strong": 20,
     "retest_hold": 25,
-    "fake": 79,
+    "fake": 80,
     "pending": 21,
     "real": 45,
-    "strong_rate": 15.5,
-    "retest_rate": 19.4,
-    "fake_rate": 61.2,
-    "real_rate": 34.9,
-    "runs_count": 74
+    "strong_rate": 15.4,
+    "retest_rate": 19.2,
+    "fake_rate": 61.5,
+    "real_rate": 34.6,
+    "runs_count": 75
   },
   "LTC_1w": {
     "symbol": "LTC",
@@ -141455,19 +143288,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 57.06582,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 45.305704,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 51.36,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 187,
-    "strong": 60,
+    "signals": 190,
+    "strong": 61,
     "retest_hold": 3,
-    "fake": 92,
+    "fake": 94,
     "pending": 3,
-    "real": 63,
+    "real": 64,
     "strong_rate": 32.1,
     "retest_rate": 1.6,
-    "fake_rate": 49.2,
+    "fake_rate": 49.5,
     "real_rate": 33.7,
-    "runs_count": 79
+    "runs_count": 80
   },
   "BCH_1w": {
     "symbol": "BCH",
@@ -143594,19 +145458,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 2,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 456.361579,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 287.893462,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-05-11",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 419.05,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 193,
-    "strong": 117,
+    "signals": 196,
+    "strong": 119,
     "retest_hold": 0,
-    "fake": 57,
+    "fake": 58,
     "pending": 0,
-    "real": 117,
-    "strong_rate": 60.6,
+    "real": 119,
+    "strong_rate": 60.7,
     "retest_rate": 0.0,
-    "fake_rate": 29.5,
-    "real_rate": 60.6,
-    "runs_count": 79
+    "fake_rate": 29.6,
+    "real_rate": 60.7,
+    "runs_count": 80
   },
   "LINK_1d": {
     "symbol": "LINK",
@@ -145174,19 +147069,67 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-14",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-07-29",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 8.412253,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 8.92,
+            "result": "strong"
+          }
+        ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-07-29",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 8.412253,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 8.92,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 112,
-    "strong": 57,
+    "signals": 116,
+    "strong": 59,
     "retest_hold": 1,
-    "fake": 34,
+    "fake": 36,
     "pending": 18,
-    "real": 58,
+    "real": 60,
     "strong_rate": 50.9,
     "retest_rate": 0.9,
-    "fake_rate": 30.4,
-    "real_rate": 51.8,
-    "runs_count": 67
+    "fake_rate": 31.0,
+    "real_rate": 51.7,
+    "runs_count": 69
   },
   "ADA_4h": {
     "symbol": "ADA",
@@ -146924,19 +148867,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-08",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.220808,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 100,
+    "signals": 101,
     "strong": 10,
     "retest_hold": 11,
-    "fake": 68,
+    "fake": 69,
     "pending": 50,
     "real": 21,
-    "strong_rate": 10.0,
-    "retest_rate": 11.0,
-    "fake_rate": 68.0,
-    "real_rate": 21.0,
-    "runs_count": 70
+    "strong_rate": 9.9,
+    "retest_rate": 10.9,
+    "fake_rate": 68.3,
+    "real_rate": 20.8,
+    "runs_count": 71
   },
   "DOGE_1d": {
     "symbol": "DOGE",
@@ -148700,19 +150660,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-15",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.070415,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.088151,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-19",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.07316,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 128,
-    "strong": 35,
+    "signals": 131,
+    "strong": 36,
     "retest_hold": 0,
-    "fake": 80,
+    "fake": 82,
     "pending": 23,
-    "real": 35,
-    "strong_rate": 27.3,
+    "real": 36,
+    "strong_rate": 27.5,
     "retest_rate": 0.0,
-    "fake_rate": 62.5,
-    "real_rate": 27.3,
-    "runs_count": 72
+    "fake_rate": 62.6,
+    "real_rate": 27.5,
+    "runs_count": 73
   },
   "AAVE_1w": {
     "symbol": "AAVE",
@@ -150459,19 +152450,57 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 4,
+        "strong": 1,
+        "retest_hold": 1,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-01-12",
+            "direction": "long",
+            "pattern": "triangle_symmetric_上緣",
+            "level": 162.381238,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 76.094426,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-17",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 118.79,
+            "result": "strong"
+          },
+          {
+            "ts": "2025-11-03",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 212.82,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 120,
-    "strong": 20,
-    "retest_hold": 60,
-    "fake": 22,
+    "signals": 124,
+    "strong": 21,
+    "retest_hold": 61,
+    "fake": 24,
     "pending": 20,
-    "real": 80,
-    "strong_rate": 16.7,
-    "retest_rate": 50.0,
-    "fake_rate": 18.3,
-    "real_rate": 66.7,
-    "runs_count": 78
+    "real": 82,
+    "strong_rate": 16.9,
+    "retest_rate": 49.2,
+    "fake_rate": 19.4,
+    "real_rate": 66.1,
+    "runs_count": 79
   },
   "ETC_1d": {
     "symbol": "ETC",
@@ -151994,19 +154023,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-18",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 6.1375,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 8.07479,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 110,
+    "signals": 112,
     "strong": 20,
     "retest_hold": 12,
-    "fake": 65,
+    "fake": 67,
     "pending": 31,
     "real": 32,
-    "strong_rate": 18.2,
-    "retest_rate": 10.9,
-    "fake_rate": 59.1,
-    "real_rate": 29.1,
-    "runs_count": 54
+    "strong_rate": 17.9,
+    "retest_rate": 10.7,
+    "fake_rate": 59.8,
+    "real_rate": 28.6,
+    "runs_count": 55
   },
   "XLM_4h": {
     "symbol": "XLM",
@@ -153734,19 +155787,57 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 2,
+        "fake": 0,
+        "pending": 2,
+        "details": [
+          {
+            "ts": "2026-09-10",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 0.181125,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 0.179114,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.18266,
+            "result": "pending"
+          },
+          {
+            "ts": "2026-09-09",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.18615,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 93,
+    "signals": 95,
     "strong": 8,
-    "retest_hold": 9,
+    "retest_hold": 11,
     "fake": 73,
-    "pending": 58,
-    "real": 17,
-    "strong_rate": 8.6,
-    "retest_rate": 9.7,
-    "fake_rate": 78.5,
-    "real_rate": 18.3,
-    "runs_count": 68
+    "pending": 60,
+    "real": 19,
+    "strong_rate": 8.4,
+    "retest_rate": 11.6,
+    "fake_rate": 76.8,
+    "real_rate": 20.0,
+    "runs_count": 69
   },
   "CHZ_4h": {
     "symbol": "CHZ",
@@ -155341,19 +157432,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-09-12",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 0.01486,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-14",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.014754,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 91,
+    "signals": 92,
     "strong": 9,
     "retest_hold": 5,
-    "fake": 72,
-    "pending": 44,
+    "fake": 73,
+    "pending": 45,
     "real": 14,
-    "strong_rate": 9.9,
-    "retest_rate": 5.5,
-    "fake_rate": 79.1,
-    "real_rate": 15.4,
-    "runs_count": 66
+    "strong_rate": 9.8,
+    "retest_rate": 5.4,
+    "fake_rate": 79.3,
+    "real_rate": 15.2,
+    "runs_count": 67
   },
   "NEAR_1d": {
     "symbol": "NEAR",
@@ -157147,19 +159262,43 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-18",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 1.602369,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-19",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 1.683,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 134,
-    "strong": 27,
+    "signals": 136,
+    "strong": 28,
     "retest_hold": 8,
-    "fake": 72,
+    "fake": 73,
     "pending": 17,
-    "real": 35,
-    "strong_rate": 20.1,
-    "retest_rate": 6.0,
+    "real": 36,
+    "strong_rate": 20.6,
+    "retest_rate": 5.9,
     "fake_rate": 53.7,
-    "real_rate": 26.1,
-    "runs_count": 75
+    "real_rate": 26.5,
+    "runs_count": 76
   },
   "STX_1w": {
     "symbol": "STX",
@@ -159416,19 +161555,50 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 3,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-05-04",
+            "direction": "long",
+            "pattern": "triangle_descending_上緣",
+            "level": 9.79234,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-15",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 6.404143,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-06-01",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 8.365,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 184,
-    "strong": 60,
+    "signals": 187,
+    "strong": 61,
     "retest_hold": 0,
-    "fake": 108,
+    "fake": 110,
     "pending": 3,
-    "real": 60,
+    "real": 61,
     "strong_rate": 32.6,
     "retest_rate": 0.0,
-    "fake_rate": 58.7,
+    "fake_rate": 58.8,
     "real_rate": 32.6,
-    "runs_count": 79
+    "runs_count": 80
   },
   "STX_1d": {
     "symbol": "STX",
@@ -161297,19 +163467,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-18",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.133983,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 0.1784,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 145,
+    "signals": 147,
     "strong": 51,
-    "retest_hold": 26,
-    "fake": 48,
+    "retest_hold": 27,
+    "fake": 49,
     "pending": 21,
-    "real": 77,
-    "strong_rate": 35.2,
-    "retest_rate": 17.9,
-    "fake_rate": 33.1,
+    "real": 78,
+    "strong_rate": 34.7,
+    "retest_rate": 18.4,
+    "fake_rate": 33.3,
     "real_rate": 53.1,
-    "runs_count": 72
+    "runs_count": 73
   },
   "ICP_4h": {
     "symbol": "ICP",
@@ -162888,19 +165082,36 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "triangle_descending_下緣",
+            "level": 2.676838,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 80,
+    "signals": 81,
     "strong": 4,
     "retest_hold": 11,
-    "fake": 62,
+    "fake": 63,
     "pending": 51,
     "real": 15,
-    "strong_rate": 5.0,
-    "retest_rate": 13.8,
-    "fake_rate": 77.5,
-    "real_rate": 18.8,
-    "runs_count": 67
+    "strong_rate": 4.9,
+    "retest_rate": 13.6,
+    "fake_rate": 77.8,
+    "real_rate": 18.5,
+    "runs_count": 68
   },
   "SOL_4h": {
     "symbol": "SOL",
@@ -166226,19 +168437,36 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-13",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 0.33609,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 114,
-    "strong": 5,
+    "signals": 115,
+    "strong": 6,
     "retest_hold": 12,
     "fake": 89,
     "pending": 25,
-    "real": 17,
-    "strong_rate": 4.4,
-    "retest_rate": 10.5,
-    "fake_rate": 78.1,
-    "real_rate": 14.9,
-    "runs_count": 68
+    "real": 18,
+    "strong_rate": 5.2,
+    "retest_rate": 10.4,
+    "fake_rate": 77.4,
+    "real_rate": 15.7,
+    "runs_count": 69
   },
   "SAND_4h": {
     "symbol": "SAND",
@@ -167755,19 +169983,36 @@
             "result": "strong"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 1,
+        "retest_hold": 0,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-09-09",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 0.03903,
+            "result": "strong"
+          }
+        ]
       }
     ],
-    "signals": 83,
-    "strong": 10,
+    "signals": 84,
+    "strong": 11,
     "retest_hold": 7,
     "fake": 63,
     "pending": 48,
-    "real": 17,
-    "strong_rate": 12.0,
-    "retest_rate": 8.4,
-    "fake_rate": 75.9,
-    "real_rate": 20.5,
-    "runs_count": 61
+    "real": 18,
+    "strong_rate": 13.1,
+    "retest_rate": 8.3,
+    "fake_rate": 75.0,
+    "real_rate": 21.4,
+    "runs_count": 62
   },
   "HYPE_1d": {
     "symbol": "HYPE",
@@ -169249,19 +171494,43 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 1,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-02",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 46.46505,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-17",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 57.999,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 105,
-    "strong": 17,
-    "retest_hold": 24,
+    "signals": 107,
+    "strong": 18,
+    "retest_hold": 25,
     "fake": 64,
     "pending": 13,
-    "real": 41,
-    "strong_rate": 16.2,
-    "retest_rate": 22.9,
-    "fake_rate": 61.0,
-    "real_rate": 39.0,
-    "runs_count": 66
+    "real": 43,
+    "strong_rate": 16.8,
+    "retest_rate": 23.4,
+    "fake_rate": 59.8,
+    "real_rate": 40.2,
+    "runs_count": 67
   },
   "NEAR_1w": {
     "symbol": "NEAR",
@@ -170938,19 +173207,43 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 2,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 2,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-01-12",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 1.55744,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-02-09",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 1.056581,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 130,
+    "signals": 132,
     "strong": 0,
     "retest_hold": 0,
-    "fake": 130,
+    "fake": 132,
     "pending": 0,
     "real": 0,
     "strong_rate": 0.0,
     "retest_rate": 0.0,
     "fake_rate": 100.0,
     "real_rate": 0.0,
-    "runs_count": 78
+    "runs_count": 79
   },
   "RENDER_1d": {
     "symbol": "RENDER",
@@ -172032,19 +174325,43 @@
             "result": "pending"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 0,
+        "fake": 1,
+        "pending": 1,
+        "details": [
+          {
+            "ts": "2026-08-16",
+            "direction": "short",
+            "pattern": "triangle_symmetric_下緣",
+            "level": 1.267162,
+            "result": "fake"
+          },
+          {
+            "ts": "2026-09-13",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 1.378,
+            "result": "pending"
+          }
+        ]
       }
     ],
-    "signals": 55,
+    "signals": 56,
     "strong": 28,
     "retest_hold": 4,
-    "fake": 23,
-    "pending": 25,
+    "fake": 24,
+    "pending": 26,
     "real": 32,
-    "strong_rate": 50.9,
-    "retest_rate": 7.3,
-    "fake_rate": 41.8,
-    "real_rate": 58.2,
-    "runs_count": 53
+    "strong_rate": 50.0,
+    "retest_rate": 7.1,
+    "fake_rate": 42.9,
+    "real_rate": 57.1,
+    "runs_count": 54
   },
   "BCH_1d": {
     "symbol": "BCH",
@@ -174270,19 +176587,57 @@
             "result": "fake"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 4,
+        "strong": 1,
+        "retest_hold": 2,
+        "fake": 1,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-13",
+            "direction": "short",
+            "pattern": "triangle_ascending_下緣",
+            "level": 207.638715,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-08-21",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 262.12355,
+            "result": "retest_hold"
+          },
+          {
+            "ts": "2026-08-20",
+            "direction": "long",
+            "pattern": "w_bottom",
+            "level": 221.95,
+            "result": "strong"
+          },
+          {
+            "ts": "2026-08-15",
+            "direction": "short",
+            "pattern": "m_top",
+            "level": 204.15,
+            "result": "fake"
+          }
+        ]
       }
     ],
-    "signals": 186,
-    "strong": 71,
-    "retest_hold": 33,
-    "fake": 56,
+    "signals": 190,
+    "strong": 72,
+    "retest_hold": 35,
+    "fake": 57,
     "pending": 21,
-    "real": 104,
-    "strong_rate": 38.2,
-    "retest_rate": 17.7,
-    "fake_rate": 30.1,
-    "real_rate": 55.9,
-    "runs_count": 79
+    "real": 107,
+    "strong_rate": 37.9,
+    "retest_rate": 18.4,
+    "fake_rate": 30.0,
+    "real_rate": 56.3,
+    "runs_count": 80
   },
   "XLM_1d": {
     "symbol": "XLM",
@@ -175814,18 +178169,35 @@
             "result": "retest_hold"
           }
         ]
+      },
+      {
+        "date": "2026-09-15",
+        "signals": 1,
+        "strong": 0,
+        "retest_hold": 1,
+        "fake": 0,
+        "pending": 0,
+        "details": [
+          {
+            "ts": "2026-08-24",
+            "direction": "long",
+            "pattern": "triangle_ascending_上緣",
+            "level": 485.460275,
+            "result": "retest_hold"
+          }
+        ]
       }
     ],
-    "signals": 1,
+    "signals": 2,
     "strong": 0,
-    "retest_hold": 1,
+    "retest_hold": 2,
     "fake": 0,
     "pending": 14,
     "strong_rate": 0.0,
     "retest_rate": 100.0,
     "fake_rate": 0.0,
-    "real": 1,
+    "real": 2,
     "real_rate": 100.0,
-    "runs_count": 15
+    "runs_count": 16
   }
 }
