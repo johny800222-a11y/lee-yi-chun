@@ -1407,7 +1407,8 @@ async def _fetch_market_snapshot(symbol: str) -> dict | None:
 # ─────────────────────────────────────────────────────────────────────
 _BTC_REGIME_CACHE: dict = {"regime": "neutral", "btc_price": 0, "ma200": 0, "ma99": 0,
                            "updated_at": 0, "btc_dominance": 0, "dom_trend": "flat",
-                           "others_d": 0, "others_trend": "flat", "alt_headwind": False}
+                           "others_d": 0, "others_trend": "flat", "alt_headwind": False,
+                           "btc_hi90": 0, "btc_struct": "away"}
 
 
 async def _fetch_btc_dominance() -> dict:
@@ -1475,7 +1476,20 @@ async def _fetch_btc_regime() -> dict:
                 return _BTC_REGIME_CACHE
             klines = r.json()
             closes = [float(k[4]) for k in klines]
+            highs  = [float(k[2]) for k in klines]
             price  = closes[-1]
+
+            # BTC 結構位置（2026-09-21 週度審計新增）：
+            # 2140 20260919直播：「BTC結構還沒突破，我的判斷到今天為止都沒變」「ETH過去創前高
+            # 我都有最後一殺，現在不能確定，要看比特幣有沒有站穩」「觀察比特幣還是重中之重」。
+            # 僅用 MA200 判牛熊看不出「BTC正卡在前高壓力下方」——用近90日前高（不含今日）客觀量化。
+            _prior_hi = max(highs[-91:-1]) if len(highs) > 91 else max(highs[:-1])
+            if price > _prior_hi:
+                btc_struct = "broke_out"
+            elif price >= _prior_hi * 0.97:
+                btc_struct = "below_resistance"
+            else:
+                btc_struct = "away"
 
             def _sma(vals, n):
                 return sum(vals[-n:]) / n if len(vals) >= n else vals[-1]
@@ -1507,8 +1521,10 @@ async def _fetch_btc_regime() -> dict:
                 "others_d":      dom_info["others_d"],
                 "others_trend":  dom_info["others_trend"],
                 "alt_headwind":  dom_info["alt_headwind"],
+                "btc_hi90":      round(_prior_hi, 0),
+                "btc_struct":    btc_struct,
             }
-            log.info(f"[BTC_REGIME] {note} | BTC.D={dom_info['btc_dominance']}%({dom_info['dom_trend']}) "
+            log.info(f"[BTC_REGIME] {note} 結構={btc_struct}(90日高{_prior_hi:,.0f}) | BTC.D={dom_info['btc_dominance']}%({dom_info['dom_trend']}) "
                      f"OTHERS.D={dom_info['others_d']}%({dom_info['others_trend']})"
                      f"{' ⚠️山寨做多逆風' if dom_info['alt_headwind'] else ''}")
     except Exception as e:
@@ -1965,6 +1981,7 @@ BTC大方向：{_BTC_REGIME_CACHE.get('regime','unknown')}（BTC={_BTC_REGIME_CA
 {'⚡ BTC牛市環境 — 跟多為主，短線空需假突破+背離雙重確認' if _BTC_REGIME_CACHE.get('regime')=='bull' else ''}
 {'⚠️ BTC熊市環境 — 跟空為主，日內短多只在底背離+量縮末端' if _BTC_REGIME_CACHE.get('regime')=='bear' else ''}
 {'🔄 BTC中性整理 — 多空均需二次確認，等BTC方向選擇' if _BTC_REGIME_CACHE.get('regime')=='neutral' else ''}
+{(f"🧱 BTC結構尚未突破：現價{_BTC_REGIME_CACHE.get('btc_price',0):,.0f}仍在近90日前高{_BTC_REGIME_CACHE.get('btc_hi90',0):,.0f}下方3%內。Sam：結構沒突破前觀點不變、不追；山寨突破單可能遇『最後一殺』式洗盤，只在回測守穩後右側進，止損放結構外、不放整數關口。" if _BTC_REGIME_CACHE.get('btc_struct')=='below_resistance' else (f"✅ BTC已突破近90日前高{_BTC_REGIME_CACHE.get('btc_hi90',0):,.0f}：需站穩＋回測守穩才算確認，假突破後的方向才是真方向。" if _BTC_REGIME_CACHE.get('btc_struct')=='broke_out' else ''))}
 
 【量能 — 主力腳印】
 量比：{market.get('vol_ratio')}x  連縮：{market.get('vol_shrink_count')}根
