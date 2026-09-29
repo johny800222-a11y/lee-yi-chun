@@ -726,6 +726,9 @@ def _detect_abcd(closes: list, highs: list, lows: list) -> dict:
                 "target_standard":     round(d_standard, 6),
                 "target_aggressive":   round(d_aggressive, 6),
                 "in_target_zone": d_conservative <= current <= d_standard * 1.05,
+                # C→D 這段本質是「回調後續漲」，B 是那個回調前高點；
+                # 沒收復 B 之前都還在「D點之前調整區」，不是右側確認（同HS/WM頸線邏輯）
+                "breakout": current > bv,
             }
 
     # 空頭 AB=CD：高點 A → 低點 B → 回調高點 C → 估算 D（目標低點）
@@ -751,6 +754,7 @@ def _detect_abcd(closes: list, highs: list, lows: list) -> dict:
                     "target_standard":     round(d_standard, 6),
                     "target_aggressive":   round(d_aggressive, 6),
                     "in_target_zone": d_standard * 0.95 <= closes[-1] <= d_conservative,
+                    "breakout": closes[-1] < bv,
                 }
     return result
 
@@ -2390,7 +2394,8 @@ leverage：85+低波動→3-5x / 75-84→2-3x / 左側預判→1-2x"""
                             result["approved"] = False
                             result["skip_reason"] = f"4H RSI超賣({_rsi4h:.1f}<30)，高時間框架超賣，不追空（除非有吸籌背離證據）"
 
-            # 硬性規則 5：型態頸線未突破就進場 → 強制轉 watch_breakout（2026-07-27 週度審計新增）
+            # 硬性規則 5：型態頸線未突破就進場 → 強制轉 watch_breakout（2026-07-27 週度審計新增，
+            # 2026-09-29 擴及 AB=CD）
             # XPIN 案例（score=81，-1.11R）：LLM reason 自己寫「等0.00152帶量突破確認...
             # 隨後回踩縮量守穩即為右側進場點」，但 approved=true 直接在 0.001473（頸線
             # 0.001505/0.00152 下方2~3%）市價進場，pattern_wm/pattern_hs 的 breakout
@@ -2398,27 +2403,35 @@ leverage：85+低波動→3-5x / 75-84→2-3x / 左側預判→1-2x"""
             # 與 entry_type①「突破當根直接市價追=追單，沒看到回測守穩用watch_breakout」，
             # 但高分型態共振時 prompt 約束仍被繞過一次，這裡補上程式碼層防線（不套用在
             # entry_type=left_side，因為那是刻意接受洗風險+系統自動縮倉50%的既有設計）。
+            # IOTAUSDT 案例（2026-09-20，-1.16R，本週唯一虧損單）：同一個漏洞出現在 AB=CD——
+            # reason 自己寫「目前0.04684處於D點之前調整區...右側邏輯：等回踩守穩後帶量突破0.0493
+            # 才進場」，但 approved=true 直接在 0.04684（B點0.0493下方）市價進場。當時
+            # pattern_abcd 沒有 breakout 欄位，這條規則的迴圈也沒把它納入，等於 HS/WM 補了
+            # 這個洞、AB=CD 還開著。AB=CD 的 C→D 段等同 HS/WM 的頸線：沒收復 B 之前都只是
+            # 回調，不是右側確認。
             if result.get("approved"):
                 _side_f2 = result.get("side", "long")
                 _unbroken_pat = None
-                for _pk in ("pattern_hs", "pattern_wm"):
+                for _pk in ("pattern_hs", "pattern_wm", "pattern_abcd"):
                     _p = market.get(_pk, {})
                     if not _p.get("detected"):
                         continue
-                    if _p.get("pattern") in ("HS_bottom", "W_bottom") and _side_f2 == "long":
+                    if _p.get("pattern") in ("HS_bottom", "W_bottom", "bull_ABCD") and _side_f2 == "long":
                         _unbroken_pat = _p
                         break
-                    if _p.get("pattern") in ("HS_top", "M_top") and _side_f2 == "short":
+                    if _p.get("pattern") in ("HS_top", "M_top", "bear_ABCD") and _side_f2 == "short":
                         _unbroken_pat = _p
                         break
                 if (_unbroken_pat is not None and _unbroken_pat.get("breakout") is False
                         and result.get("entry_type") != "left_side"):
                     result["approved"] = False
                     result["entry_type"] = "watch_breakout"
-                    result["watch_level"] = _unbroken_pat.get("neckline")
+                    _watch_lvl = _unbroken_pat.get("neckline") or _unbroken_pat.get("B")
+                    result["watch_level"] = _watch_lvl
                     result["watch_condition"] = "breakout_above" if _side_f2 == "long" else "breakdown_below"
                     result["skip_reason"] = (
-                        f"{_unbroken_pat.get('pattern')}頸線{_unbroken_pat.get('neckline')}尚未突破"
+                        f"{_unbroken_pat.get('pattern')}"
+                        f"{'頸線' if _unbroken_pat.get('neckline') else 'B點'}{_watch_lvl}尚未突破"
                         f"（現價{market.get('price')}），型態未定型禁止提前進場，轉watch_breakout"
                     )
 
