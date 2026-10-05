@@ -1617,14 +1617,13 @@ def _should_ask_sam(market: dict, btc_regime: str = "neutral") -> tuple[bool, st
         )
         if not has_long_signal:
             return False, f"日線偏空且無吸籌完成證據（連續底背離/假跌破/量縮末端），不送LLM"
-    if daily_trend == "bull":
-        has_short_signal = (
-            market.get("rsi_bear_div_continuous") or       # 連續頂背離=出貨
-            market.get("fake_breakout_up") or
-            market.get("vol_extreme_compression")
-        )
-        if not has_short_signal:
-            return False, f"日線偏多且無出貨完成證據（連續頂背離/假突破/量縮極致），不送LLM"
+    # 日線偏多（2026-10-05 週度審計修正）：原本這裡對 bull 也做了對稱 return False，
+    # 但前置過濾時還不知道方向 → 等於把「日線多頭 + 順勢做多」也一起封殺。
+    # 09-28~10-05 前置過濾 500 筆中 232 筆卡在這裡，最近 100+ 筆成交幾乎全是 neutral 幣，
+    # 與 Sam「日線200MA判斷牛熊」「順大逆小」相反；20260926直播也說「山寨B比主流B更強勢」
+    # 「上升趨勢線洗盤插針假跌破＝趨勢還在」。逆日線做空的防線已由硬性規則0
+    # （需連續頂背離+假突破出貨證據）在 LLM 決策後鎖死，這裡不再重複擋順勢多單；
+    # 後續仍需通過 ③量縮極致 / ⑤放量+型態 / ⑥背離+右側確認 才會送 LLM。
 
     # ── ③ 量縮極致 → 彈簧壓縮，單獨放行 ──────────────────────────────
     if vol_extreme:
