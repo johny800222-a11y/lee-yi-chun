@@ -2596,6 +2596,15 @@ def virtual_enter(state: dict, signal: dict, decision: dict) -> dict | None:
         "rsi_1h":      signal.get("rsi_1h", 50),
         "vol_ratio":   signal.get("vol_ratio", 1),
         "knowledge_used": decision.get("knowledge_used", False),
+        # 週度審計用（2026-10-12 新增，不影響決策）：SOL/SFP 本週 reason 自寫「等突破X才右側進場」
+        # 卻以現價滿倉進場，但交易紀錄沒存 entry_type / 進場當下假突破旗標，無法判斷是否為
+        # 「左側猜底被標成 right_side 而躲過縮倉」（病灶③）。先記錄，累積樣本再決定要不要動規則。
+        "entry_type":    _et,
+        "strategy_type": strategy_type,
+        "rsi_4h":        signal.get("rsi_4h"),
+        "fake_breakout_down": bool(signal.get("fake_breakout_down") or signal.get("fake_breakout_down_15m")),
+        "fake_breakout_up":   bool(signal.get("fake_breakout_up") or signal.get("fake_breakout_up_15m")),
+        "watch_level":   decision.get("watch_level", 0),
         "source":      "sam_v2",
         "entered_at":  datetime.now(TZ8).isoformat(),
         # 日內單專用欄位
