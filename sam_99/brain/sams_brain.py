@@ -2434,6 +2434,34 @@ leverage：85+低波動→3-5x / 75-84→2-3x / 左側預判→1-2x"""
                         f"（現價{market.get('price')}），型態未定型禁止提前進場，轉watch_breakout"
                     )
 
+            # 硬性規則 6：approved=true 但 entry_type=watch_breakout 且價格還沒到 watch_level
+            # → 不准市價進場，改掛觀察清單等觸發（2026-10-26 週度審計新增）
+            # 主迴圈先判 approved 再判 watch_breakout，LLM 若同時回 approved=true +
+            # watch_breakout，就會在關鍵位之前直接市價進場。10/14~10/25 共 7 筆這樣的單
+            # （RSR -11%、Q -38%、MET -7%、TAO -4.5%、KAIA -4.2%、SOL/XTZ -1.5%），
+            # 7 筆全數止損 -74 USDT；同期價格真的到位才進的 watch_breakout 7 段 4 勝 +24。
+            # KAIA 的 reason 自己寫「等待右側進場點…不追突破當根，等回踩一次確認才進」卻照樣進場。
+            # 依據：原主目標價表單（2140_pattern_knowledge.md 2026-10-23）——觸發價＝箱頂突破，
+            # 「先掛好觸發，不追價」、「箱型中準備、突破才觸發」；prompt entry_type③ 定義亦同。
+            # 已由觸發路徑重判（market 帶 watch_context）的不套用，避免到位後又被擋回觀察。
+            if (result.get("approved") and result.get("entry_type") == "watch_breakout"
+                    and not market.get("watch_context")):
+                _wl6 = float(result.get("watch_level") or 0)
+                _px6 = float(market.get("price") or 0)
+                _side6 = result.get("side", "long")
+                _cond6 = result.get("watch_condition")
+                if _cond6 not in ("breakout_above", "breakdown_below"):
+                    _cond6 = "breakout_above" if _side6 == "long" else "breakdown_below"
+                _not_reached = _wl6 > 0 and _px6 > 0 and (
+                    (_cond6 == "breakout_above" and _px6 <= _wl6) or
+                    (_cond6 == "breakdown_below" and _px6 >= _wl6))
+                if _not_reached:
+                    result["approved"] = False
+                    result["watch_condition"] = _cond6
+                    result["skip_reason"] = (
+                        f"watch_breakout 關鍵位{_wl6}尚未{'突破' if _cond6 == 'breakout_above' else '跌破'}"
+                        f"（現價{_px6}），箱型中只準備、到位才觸發，轉觀察清單")
+
             # 軟性警示：vol_ratio = 1.0 疑似資料異常，記錄但不強制擋（Sam自己判斷）
             if market.get("vol_ratio", 1) == 1.0 and result.get("approved"):
                 result["data_warning"] = "量比=1.0，可能是量能資料未正常取得，請Sam納入不確定性考量"
