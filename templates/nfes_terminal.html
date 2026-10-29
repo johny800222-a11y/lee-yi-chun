@@ -88,6 +88,7 @@ body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-b);padding-left
 .duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 @media (max-width:700px){.duo{grid-template-columns:1fr}}
 .trade{padding:14px}
+.tcard+.tcard{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .trade .sym{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
 .trade .sym b{font-family:var(--f-d);font-size:26px}
 .trade .pnl{margin-left:auto;font-family:var(--f-m);font-weight:700}
@@ -165,9 +166,7 @@ body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-b);padding-left
       <div class="duo">
         <section class="panel trade">
           <div class="cap"><span id="tcap">TRADE · 最近一筆</span><span class="pill" id="tst" style="color:var(--dim)">—</span></div>
-          <div class="sym"><b id="tsym">—</b><span class="pill" id="tside" hidden>LONG</span><span class="pnl" id="tpnl"></span></div>
-          <div class="kv"><span>進場</span><span id="ten">—</span><span>出場</span><span id="tex">—</span><span>倉位</span><span id="tsz">—</span><span>結果</span><span id="tr">—</span></div>
-          <div class="reason" id="trs"></div>
+          <div id="tcards"></div>
         </section>
         <section class="panel tail">
           <div class="cap"><span style="color:var(--g)" id="logname">$ tail -f</span><span id="tn">—</span></div>

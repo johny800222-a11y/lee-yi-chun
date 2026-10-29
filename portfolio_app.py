@@ -2655,12 +2655,8 @@ def _build_nfes_terminal() -> dict:
                    "why": f"多週期訊號 {e['signal']} 成立，進場價 {e['entry']}"} for e in recent_entries[:10]]
     decisions.sort(key=lambda d: _parse_ts(d["ts"]) or _TS_MIN)
 
-    pos = positions[0] if positions else None
-    last = full[-1] if full else None
-    t = pos or last
-    card = None
-    if t:
-        card = {"open": bool(pos), "symbol": _coin(t.get("symbol") or t.get("sym")), "side": t.get("side"),
+    def _card(t: dict, pos: bool) -> dict:
+        return {"open": pos, "symbol": _coin(t.get("symbol") or t.get("sym")), "side": t.get("side"),
                 "entry": f"{t.get('entry_px')} · {(t.get('entry_ts') or '')[5:16].replace('T', ' ')}",
                 "exit": (f"止損 {t.get('sl')} / TP1 {t.get('tp1')} / TP3 {t.get('tp3')}" if pos
                          else f"{t.get('exit_px')} · {(t.get('exit_ts') or '')[5:16].replace('T', ' ')}"),
@@ -2669,6 +2665,9 @@ def _build_nfes_terminal() -> dict:
                 "pnl": (t.get("unrealized_pnl") if pos else t.get("pnl")),
                 "pnl_text": (f"{(t.get('unrealized_pnl') or 0):+.2f} U 未實現" if pos else f"{(t.get('pnl') or 0):+.2f} U"),
                 "reason": (f"訊號 {t.get('signal', '')}，現價 {t.get('cur_px')}" if pos else (t.get("note") or f"出場原因：{t.get('reason')}"))}
+
+    # 有持倉就列出全部持倉；沒有才顯示最近一筆已平倉
+    cards = [_card(p, True) for p in positions] or ([_card(full[-1], False)] if full else [])
 
     rows = [{"ts": x.get("exit_ts"), "tag": "WIN" if (x.get("pnl") or 0) > 0 else "LOSS" if (x.get("pnl") or 0) < 0 else "BE",
              "symbol": _coin(x.get("sym")), "why": x.get("note") or x.get("reason") or "", "pnl": x.get("pnl")} for x in trades[-7:]]
@@ -2708,7 +2707,7 @@ def _build_nfes_terminal() -> dict:
              "pill": "PAUSE" if long_pause and long_pause > now else "LIVE",
              "now": f"總資產 {_usd(eq)} · 累計 {wins_total}勝/{n_total}筆 · 已實現 {nfes.get('total_realized_pnl', 0):+.2f}U"},
         ],
-        "card": card,
+        "cards": cards,
         "rows": sorted(rows, key=lambda r: _parse_ts(r["ts"]) or _TS_MIN, reverse=True)[:9],
         "log": log,
         "decisions": decisions[-30:],

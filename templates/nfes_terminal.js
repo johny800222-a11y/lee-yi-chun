@@ -82,13 +82,13 @@ function render(){
 
  D.agents.forEach(a=>{const el=$('ag-'+a.k);if(!el)return;el.querySelector('.now').textContent=a.now;el.querySelector('.pill').textContent=a.pill});
 
- const t=D.card;
- if(t){$('tcap').textContent=t.open?'TRADE · 持倉中':'TRADE · 最近一筆';
-  $('tst').textContent=t.open?'OPEN':'CLOSED';$('tst').style.color=t.open?'var(--g)':'var(--dim)';
-  $('tsym').textContent='$'+t.symbol;const sd=$('tside');sd.hidden=!t.side;sd.textContent=(t.side||'').toUpperCase();sd.style.color=t.side==='short'?'var(--r)':'var(--g)';
-  $('ten').textContent=t.entry;$('tex').textContent=t.exit;$('tsz').textContent=t.size;$('tr').textContent=t.result||'—';
-  $('tpnl').textContent=t.pnl_text;$('tpnl').className='pnl '+((t.pnl||0)>=0?'up':'dn');
-  $('trs').textContent=t.reason?'理由：'+t.reason:''}
+ const cs=D.cards||[],op=cs.length&&cs[0].open;
+ $('tcap').textContent=op?`TRADE · 持倉中 ×${cs.length}`:'TRADE · 最近一筆';
+ $('tst').textContent=cs.length?(op?'OPEN':'CLOSED'):'—';$('tst').style.color=op?'var(--g)':'var(--dim)';
+ $('tcards').innerHTML=cs.map(t=>`<div class="tcard">
+  <div class="sym"><b>$${esc(t.symbol)}</b>${t.side?`<span class="pill" style="color:${t.side==='short'?'var(--r)':'var(--g)'}">${esc(t.side.toUpperCase())}</span>`:''}<span class="pnl ${(t.pnl||0)>=0?'up':'dn'}">${esc(t.pnl_text)}</span></div>
+  <div class="kv"><span>進場</span><span>${esc(t.entry)}</span><span>出場</span><span>${esc(t.exit)}</span><span>倉位</span><span>${esc(t.size)}</span><span>結果</span><span>${esc(t.result||'—')}</span></div>
+  ${t.reason?`<div class="reason">理由：${esc(t.reason)}</div>`:''}</div>`).join('');
 
  const tl=$('tail'),key=D.log.map(x=>x.t+x.msg).join('|');
  if(tl._key!==key){const prev=new Set((tl._key||'').split('|'));tl._key=key;
