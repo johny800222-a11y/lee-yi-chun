@@ -2230,7 +2230,7 @@ watch_breakout 範例：
 
 第一步：先確認你用的是哪種策略形態
 第二步：套用該形態對應的止損邏輯
-第三步：算出從進場價到那個「被否定位」的%距離 → 這才是 sl_pct
+第三步：把那個「被否定位」的價格填進 sl_price（程式會自己換算%，不用你算；sl_pct 只當備用）
 
 各策略形態的止損放置邏輯：
 ┌─────────────────────────────────────────────────────────────────┐
@@ -2255,7 +2255,7 @@ watch_breakout 範例：
 ⚠️ SL > 8%：論點不清晰，建議不進場
 
 ⚠️ 重要：只輸出純 JSON 物件，第一個字元必須是 {{，最後一個字元必須是 }}，絕對不要加 markdown、不要加說明文字、不要加 ```json：
-{{"approved": true/false, "side": "long"/"short", "strategy_type": "上方10個策略之一", "reason": "【策略名稱】具體描述", "score": 0-100, "entry_type": "right_side"/"left_side"/"watch_breakout", "watch_level": 0, "watch_condition": "", "sl_pct": 0.02, "tp_pct": 0.03, "leverage": 2, "skip_reason": "", "pattern_target": 0, "trap_observation": null}}
+{{"approved": true/false, "side": "long"/"short", "strategy_type": "上方10個策略之一", "reason": "【策略名稱】具體描述", "score": 0-100, "entry_type": "right_side"/"left_side"/"watch_breakout", "watch_level": 0, "watch_condition": "", "sl_price": 0, "sl_pct": 0.02, "tp_pct": 0.03, "leverage": 2, "skip_reason": "", "pattern_target": 0, "trap_observation": null}}
 
 score：85+=A+ / 75-84=A / 60-74=B觀察 / <60忽略
 leverage：85+低波動→3-5x / 75-84→2-3x / 左側預判→1-2x"""
@@ -2536,6 +2536,22 @@ def virtual_enter(state: dict, signal: dict, decision: dict) -> dict | None:
     # LLM 有時回傳百分比（如 3.8）而非小數（0.038），自動修正
     if sl_pct > 1:
         sl_pct = sl_pct / 100
+    # 2026-10-29：LLM 自己換算 % 常算錯（XTZ 文字寫守 0.2988≈-2.7%，sl_pct 卻填 0.44%），
+    # 改成優先用它給的「被否定位」價格，由程式換算；價格不合理才退回 sl_pct
+    try:
+        _slp = float(decision.get("sl_price") or 0)
+    except (TypeError, ValueError):
+        _slp = 0
+    if _slp > 0 and ((side == "long" and _slp < price) or (side == "short" and _slp > price)):
+        _from_px = abs(price - _slp) / price
+        if abs(_from_px - sl_pct) > 0.002:
+            log.info(f"[SL_FROM_PRICE] {symbol} 用結構價 {_slp:.6g} → {_from_px*100:.2f}%（LLM 填的 sl_pct {sl_pct*100:.2f}%）")
+        sl_pct = _from_px
+    # 止損下限：< 1% 在 15m/1h 只是雜訊，放寬到 1%（倉位用 risk/距離計算，總風險不變）
+    MIN_SL_PCT = 0.01
+    if sl_pct < MIN_SL_PCT:
+        log.info(f"[SL_FLOOR] {symbol} 止損 {sl_pct*100:.2f}% 太近，放寬到 {MIN_SL_PCT*100:.0f}%")
+        sl_pct = MIN_SL_PCT
     # 止損上限保護：超過 12% 視為 LLM 異常，拒絕進場
     if sl_pct > 0.12:
         log.warning(f"[ENTER_REJECT] {symbol} sl_pct={sl_pct*100:.1f}% 超過上限 12%，拒絕進場（LLM 異常）")
