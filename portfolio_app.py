@@ -32,6 +32,71 @@ GIST_FILENAME  = "portfolio_state.json"
 
 app = Flask(__name__, static_folder=str(BASE_DIR))
 
+# ── 外網密碼鎖：經 cloudflared / ngrok 進來的請求要登入，本機與區網免密碼 ──
+from datetime import timedelta
+from flask import session, redirect
+from werkzeug.security import check_password_hash
+
+AUTH_FILE = BASE_DIR / "dashboard_auth.secret"   # {"hash","secret"}，已被 .gitignore 的 *.secret 排除
+try:
+    _auth = json.loads(AUTH_FILE.read_text())
+except Exception:   # Render 上沒有這個檔：在 Render 環境變數設 DASHBOARD_AUTH_HASH / DASHBOARD_SECRET
+    _auth = {"hash": os.getenv("DASHBOARD_AUTH_HASH", ""), "secret": os.getenv("DASHBOARD_SECRET", "")}
+app.secret_key = _auth.get("secret") or os.urandom(32).hex()
+app.permanent_session_lifetime = timedelta(days=30)
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=True)
+_login_fails: dict = {}   # ip -> [失敗次數, 鎖到何時]
+
+def _is_remote() -> bool:
+    h = request.headers
+    return bool(h.get("Cf-Connecting-Ip") or h.get("X-Forwarded-For") or h.get("Ngrok-Trace-Id"))
+
+def _client_ip() -> str:
+    h = request.headers
+    return h.get("Cf-Connecting-Ip") or (h.get("X-Forwarded-For") or "").split(",")[0].strip() or request.remote_addr or "?"
+
+LOGIN_HTML = """<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>登入 · SAM</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#06080c;color:#e8ebf1;font:15px system-ui,"Noto Sans TC",sans-serif;padding:16px;box-sizing:border-box}
+form{width:100%;max-width:320px;display:grid;gap:12px;padding:24px;border:1px solid #1b2230;border-radius:14px;background:#0c1016}
+h1{margin:0 0 4px;font-size:20px}input,button{font:inherit;padding:12px;border-radius:9px;border:1px solid #2a3344;background:#10151d;color:inherit}
+button{background:#34d399;color:#06080c;border:0;font-weight:700;cursor:pointer}.e{color:#ff4d5e;font-size:13px;margin:0}</style></head>
+<body><form method="post" action="/login"><h1>SAM Brain</h1><input type="hidden" name="next" value="__NEXT__">
+<input type="password" name="pw" placeholder="密碼" autofocus required autocomplete="current-password">__ERR__<button>登入</button></form></body></html>"""
+
+def _login_page(err: str = "", nxt: str = "/"):
+    nxt = nxt if nxt.startswith("/") and not nxt.startswith("//") else "/"
+    html = LOGIN_HTML.replace("__NEXT__", nxt.replace('"', "")).replace("__ERR__", f'<p class="e">{err}</p>' if err else "")
+    return Response(html, mimetype="text/html", status=401 if err else 200)
+
+@app.before_request
+def _require_login():
+    if request.path in ("/login", "/manifest.json") or not _is_remote() or session.get("ok"):
+        return None
+    if not _auth.get("hash"):
+        return Response("外網存取未設定密碼", status=503)
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "unauthorized"}), 401
+    return _login_page(nxt=request.full_path.rstrip("?"))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    nxt = request.values.get("next", "/")
+    if request.method == "GET":
+        return _login_page(nxt=nxt)
+    ip, now = _client_ip(), time.time()
+    cnt, until = _login_fails.get(ip, [0, 0.0])
+    if until > now:
+        return _login_page(f"錯誤太多次，請 {int((until - now) // 60) + 1} 分鐘後再試", nxt)
+    if _auth.get("hash") and check_password_hash(_auth["hash"], request.form.get("pw", "")):
+        _login_fails.pop(ip, None)
+        session.permanent = True
+        session["ok"] = True
+        return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
+    cnt += 1
+    _login_fails[ip] = [0, now + 900] if cnt >= 5 else [cnt, 0.0]
+    return _login_page("密碼錯誤", nxt)
+
 # ─────────────────────────────────────────────────────────────────
 # GitHub Gist 工具
 # ─────────────────────────────────────────────────────────────────
@@ -56,6 +121,36 @@ def _gist_get() -> dict | None:
     except Exception:
         pass
     return None
+
+def _gist_get_file(filename: str, ttl: int = 30) -> dict | None:
+    """讀 Gist 裡的其他檔案（終端資料），各自 cache"""
+    c = _gist_files_cache.get(filename)
+    if c and time.time() - c[0] < ttl:
+        return c[1]
+    try:
+        r = _requests.get(f"https://gist.githubusercontent.com/johny800222-a11y/{GIST_ID}/raw/{filename}", timeout=8)
+        if r.ok:
+            data = json.loads(r.text)
+            _gist_files_cache[filename] = (time.time(), data)
+            return data
+    except Exception:
+        pass
+    return c[1] if c else None
+
+_gist_files_cache: dict = {}
+
+def _gist_put_files(files: dict) -> bool:
+    """一次寫入多個 Gist 檔案 {檔名: dict}"""
+    try:
+        r = _requests.patch(
+            f"https://api.github.com/gists/{GIST_ID}",
+            headers={"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
+            json={"files": {k: {"content": json.dumps(v, ensure_ascii=False)} for k, v in files.items()}},
+            timeout=15,
+        )
+        return r.ok
+    except Exception:
+        return False
 
 def _gist_put(data: dict) -> bool:
     """把 portfolio 狀態寫入 GitHub Gist"""
@@ -2333,6 +2428,335 @@ def api_btc_trend():
     except Exception as e:
         return jsonify({"trend": "無法取得", "sub": str(e), "color": "#888", "price": 0, "ema20": 0, "ema50": 0})
 
+# ── 交易終端（/terminal = SAM、/terminal/nfes = NFES）：只讀檔案，不呼叫任何 API ──
+# 每個 bot 各自一個 builder＋各自的頁面/前端（templates/sam_terminal.*、nfes_terminal.*），互不共用
+_thinking_cache: dict = {"mtime": 0.0, "rows": []}
+
+def _parse_ts(s) -> datetime | None:
+    if not s:
+        return None
+    try:
+        d = datetime.fromisoformat(str(s))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+_TS_MIN = datetime.min.replace(tzinfo=timezone.utc)
+
+def _iso(d: datetime | None) -> str | None:
+    return d.isoformat() if d else None
+
+def _coin(s: str | None) -> str:
+    return (s or "").replace("/USDT:USDT", "").replace("USDT", "")
+
+def _usd(n) -> str:
+    return "—" if n is None else f"${n:,.2f}"
+
+def _month0() -> datetime:
+    return datetime.now().astimezone().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+def _tail_lines(path: Path, nbytes: int = 400_000) -> list:
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2)
+            fh.seek(max(0, fh.tell() - nbytes))
+            return fh.read().decode("utf-8", "ignore").splitlines()[1:]
+    except Exception:
+        return []
+
+def _slim_thinking() -> list:
+    """sams_thinking_log.json 有 20MB（含K線），依 mtime 快取精簡版"""
+    f = BASE_DIR / "sam_99" / "brain" / "sams_thinking_log.json"
+    try:
+        mt = f.stat().st_mtime
+        if mt != _thinking_cache["mtime"]:
+            rows = []
+            for e in json.loads(f.read_text()):
+                m = e.get("market") or {}
+                rows.append({
+                    "symbol": e.get("symbol"), "ts": e.get("timestamp"),
+                    "approved": bool(e.get("approved")), "side": e.get("side"),
+                    "score": e.get("score"), "strategy": e.get("strategy_type"),
+                    "skip": (e.get("skip_reason") or "").replace("[前置過濾] ", ""),
+                    "view": e.get("brain_view") or "", "reason": e.get("reason") or "",
+                    "price": m.get("price"), "trend": m.get("daily_trend"),
+                    "rsi_1h": m.get("rsi_1h"), "vol": m.get("vol_ratio"),
+                })
+            _thinking_cache.update(mtime=mt, rows=rows)
+    except Exception:
+        pass
+    return _thinking_cache["rows"]
+
+def _terminal_curve(trades: list, eq_now: float, pnl_key: str, ts_key: str, n: int = 160) -> list:
+    """從現在淨值往回扣每筆已實現損益，重建淨值曲線"""
+    pts, eq = [], eq_now
+    for t in reversed(trades[-n:]):
+        pts.append({"t": t.get(ts_key), "eq": round(eq, 4)})
+        eq -= t.get(pnl_key) or 0
+    return pts[::-1]
+
+
+def _build_sam_terminal() -> dict:
+    brain_dir = BASE_DIR / "sam_99" / "brain"
+    state, trades = {}, []
+    try:
+        state = json.loads((brain_dir / "sams_brain_state.json").read_text())
+    except Exception:
+        pass
+    try:
+        trades = json.loads((brain_dir / "sams_brain_trades.json").read_text())
+    except Exception:
+        pass
+    now, month0 = datetime.now().astimezone(), _month0()
+    trades = sorted(trades, key=lambda x: _parse_ts(x.get("exited_at")) or _TS_MIN)
+    month_start = state.get("capital")
+    for t in trades:
+        d = _parse_ts(t.get("exited_at"))
+        if d and d < month0 and t.get("equity_after") is not None:
+            month_start = t["equity_after"]
+    full = [t for t in trades if not t.get("type")]          # 完整單 pnl 已含分批
+    month_full = [t for t in full if (_parse_ts(t.get("exited_at")) or month0) >= month0]
+    eq = state.get("equity") or 0
+
+    thinking = _slim_thinking()
+    today_rows = [r for r in thinking if (_parse_ts(r["ts"]) or now).astimezone().date() == now.date()]
+
+    log = []
+    for ln in _tail_lines(brain_dir / "sams_brain.log"):
+        if "HTTP Request" in ln or "[SAM_v2]" not in ln:
+            continue
+        lvl, _, msg = ln.split("[SAM_v2] ", 1)[1].partition(" ")
+        tag = msg[1:msg.index("]")] if msg.startswith("[") and "]" in msg else lvl
+        msg = msg[len(tag) + 2:].strip() if msg.startswith("[") else msg
+        log.append({"t": ln[11:16], "lvl": lvl, "tag": tag, "msg": _coin(msg)[:220]})
+    log = log[-40:]
+
+    positions = [dict(v, symbol=v.get("symbol", k)) for k, v in (state.get("positions") or {}).items()]
+    pos, last = (positions[0] if positions else None), (full[-1] if full else None)
+    scans = [x for x in log if x["tag"] == "SCAN"]
+    watch = [_coin(s) for s in (state.get("watchlist") or {})]
+    last_f = next((r for r in reversed(thinking) if not r["approved"]), None)
+    paused = (state.get("entry_pause_until") or 0) > time.time()
+    ref = pos or last or {}
+
+    t = pos or last
+    card = None
+    if t:
+        card = {"open": bool(pos), "symbol": _coin(t.get("symbol")), "side": t.get("side"),
+                "entry": f"{t.get('entry_px')} · {t.get('entered_at', '')[5:16].replace('T', ' ')}",
+                "exit": (f"止損 {t.get('sl_price')} / 目標 {t.get('tp_price')}" if pos
+                         else f"{t.get('exit_px'):.6g} · {t.get('exited_at', '')[5:16].replace('T', ' ')}"),
+                "size": f"名目 {_usd(t.get('notional'))} · {t.get('leverage') or 1}x · {t.get('strategy_type') or ''}",
+                "result": "" if pos else (t.get("exit_why") or ""),
+                "pnl": None if pos else t.get("pnl"),
+                "pnl_text": "" if pos else f"{(t.get('pnl') or 0):+.2f} U ({(t.get('pnl_r') or 0):+.2f}R)",
+                "reason": t.get("reason") or ""}
+
+    rows = [{"ts": x.get("exited_at"), "tag": "WIN" if (x.get("pnl") or 0) > 0 else "LOSS", "symbol": _coin(x.get("symbol")),
+             "why": f"{x.get('exit_why') or ''}｜{x.get('reason') or ''}", "pnl": x.get("pnl")} for x in full[-6:]]
+    rows += [{"ts": r["ts"], "tag": "FILTERED", "symbol": _coin(r["symbol"]), "why": r["skip"] or r["view"], "pnl": None}
+             for r in [r for r in thinking if not r["approved"]][-4:]]
+    rows += [{"ts": r["ts"], "tag": "PASS", "symbol": _coin(r["symbol"]), "why": r["reason"] or r["view"], "pnl": None, "side": r["side"]}
+             for r in [r for r in thinking if r["approved"]][-3:]]
+
+    return {
+        "meta": {"key": "sam", "name": "SAM Brain", "logo": "S", "version": state.get("brain_version") or "SAM",
+                 "log_name": "sams_brain.log", "goal_pct": 3, "stall_min": 15,
+                 "filter_tile": "前置過濾", "src": "sams_brain_state / trades / thinking_log / sams_brain.log"},
+        "now": now.isoformat(), "last_scan": state.get("last_scan"),
+        "equity": eq, "month_start": month_start,
+        "month": {"wins": sum(1 for x in month_full if (x.get("pnl") or 0) > 0),
+                  "losses": sum(1 for x in month_full if (x.get("pnl") or 0) <= 0)},
+        "eq_sub": f"MDD {(state.get('max_drawdown') or 0) * 100:.1f}% · 高點 {_usd(state.get('peak_equity'))}",
+        "curve": [{"t": x["exited_at"], "eq": x["equity_after"]} for x in trades if x.get("equity_after") is not None][-160:],
+        "dots": [(x.get("pnl") or 0) > 0 for x in full[-12:]],
+        "today": {"checked": len(today_rows), "approved": sum(1 for r in today_rows if r["approved"]),
+                  "filtered": sum(1 for r in today_rows if not r["approved"]), "label": f"今日最近 {len(today_rows)} 筆決策"},
+        "agents": [
+            {"k": "scan", "c": "--y", "ic": "◉", "nm": "SCANNER", "ds": "每 5 分鐘掃幣", "rule": "只標記，不下單", "pill": "SCAN",
+             "now": (f"{scans[-1]['t']} {scans[-1]['msg']}" if scans else "—") + (f"\n觀察清單 {'、'.join(watch)}" if watch else "")},
+            {"k": "risk", "c": "--r", "ic": "▲", "nm": "PRE-FILTER", "ds": "RSI／量能／假突破過濾", "rule": "沒通過一律不執行", "pill": "FILTER",
+             "now": f"{(last_f['ts'] or '')[11:16]} {_coin(last_f['symbol'])}：{last_f['skip']}" if last_f else "—"},
+            {"k": "size", "c": "--p", "ic": "◆", "nm": "SIZER", "ds": "依淨值算風險金額", "rule": "風險金額固定、槓桿有上限", "pill": "IDLE",
+             "now": (f"{'' if pos else '上一筆 '}{_coin(ref.get('symbol'))} 名目 {_usd(ref.get('notional'))} · 風險 {_usd(ref.get('risk_amt'))} · {ref.get('leverage') or 1}x") if ref else "—"},
+            {"k": "exec", "c": "--c", "ic": "▶", "nm": "EXECUTOR", "ds": "開倉／分批止盈／止損", "rule": "TP1→TP2→TP3 分批出場",
+             "pill": "LIVE" if positions else "PAUSE" if paused else "IDLE",
+             "now": (f"持倉 {len(positions)} 筆：" + "、".join(f"{_coin(p['symbol'])} {p.get('side') or ''}" for p in positions)) if positions
+                    else (f"暫停進場至 {datetime.fromtimestamp(state['entry_pause_until']).strftime('%m/%d %H:%M')}" if paused else "無持倉，等待通過的訊號")},
+            {"k": "log", "c": "--o", "ic": "✎", "nm": "LOGGER", "ds": "每個決策都寫下來", "rule": "沒有理由就不交易", "pill": "WRITE",
+             "now": f"今日最近 {len(today_rows)} 筆決策已記錄" + (f" · 最新 {(last_f['ts'] or '')[11:16]}" if last_f else "")},
+            {"k": "eq", "c": "--b", "ic": "◐", "nm": "EQUITY", "ds": "淨值＋最大回撤", "rule": "每次平倉就更新", "pill": "LIVE",
+             "now": f"淨值 {_usd(eq)} · 總計 {state.get('wins')}勝 {state.get('losses')}敗 · 連敗 {state.get('loss_streak') or 0}"},
+        ],
+        "card": card,
+        "rows": sorted(rows, key=lambda r: _parse_ts(r["ts"]) or _TS_MIN, reverse=True)[:9],
+        "log": log,
+        "decisions": [{"symbol": _coin(r["symbol"]), "ts": r["ts"], "approved": r["approved"], "side": r["side"],
+                       "chip": f"RSI {round(r['rsi_1h']) if r['rsi_1h'] is not None else '–'} · 量 {r['vol'] if r['vol'] is not None else '–'}x",
+                       "context": f"{r['trend'] or ''} · 價格 {r['price']} · 策略 {r['strategy'] or ''}",
+                       "why": r["skip"] or r["view"] if not r["approved"] else f"分數 {r['score']}　{(r['reason'] or r['view'])[:140]}"}
+                      for r in thinking[-30:]],
+    }
+
+
+def _build_nfes_terminal() -> dict:
+    import re
+    import shared_capital as sc
+    nfes, ema = load_nfes_state(), load_bot_state()
+    now, month0 = datetime.now().astimezone(), _month0()
+    positions = [dict(v, symbol=k) for k, v in (nfes.get("positions") or {}).items()]
+    locked = sum(p.get("margin", 0) for p in positions) + sum(p.get("margin", 0) for p in (ema.get("positions") or {}).values())
+    pool = ema.get("capital", 0)
+    eq = pool + locked                                         # 與首頁「總資產」同算法（已實現）
+    trades = sorted(nfes.get("trades") or [], key=lambda x: _parse_ts(x.get("exit_ts")) or _TS_MIN)
+    month_tr = [t for t in trades if (_parse_ts(t.get("exit_ts")) or _TS_MIN) >= month0]
+    try:   # 手動校正資金池（capital_adjustments.json）也算進曲線與月初
+        adj = [{"pnl": a.get("delta") or 0, "exit_ts": a.get("time"), "reason": "adjust"}
+               for a in json.loads((BASE_DIR / "capital_adjustments.json").read_text())]
+    except Exception:
+        adj = []
+    steps = sorted(trades + adj, key=lambda x: _parse_ts(x.get("exit_ts")) or _TS_MIN)
+    month_start = eq - sum(t.get("pnl") or 0 for t in steps if (_parse_ts(t.get("exit_ts")) or _TS_MIN) >= month0)
+    is_full = lambda t: not str(t.get("reason", "")).endswith("_partial")
+    full = [t for t in trades if is_full(t)]
+    month_full = [t for t in month_tr if is_full(t)]
+    unreal = sum(p.get("unrealized_pnl") or 0 for p in positions)
+
+    # log：濾掉 TG 逾時雜訊；RSI_FILTER 當作「攔下」決策
+    pat = re.compile(r"^(\d{4}-\d\d-\d\d) (\d\d:\d\d):\d\d,\d+ (\w+) (.*)$")
+    log, skips, today_skips, last_scan, last_found = [], [], 0, None, None
+    today = now.strftime("%Y-%m-%d")
+    for ln in _tail_lines(BASE_DIR / "nfes_signal_bot.log", 2_000_000):
+        m = pat.match(ln)
+        if not m or "HTTP Request" in ln or "cmd_listener" in ln:
+            continue
+        day, hhmm, lvl, msg = m.groups()
+        ts = datetime.fromisoformat(f"{day}T{hhmm}:00").astimezone()
+        tag = msg[1:msg.index("]")] if msg.startswith("[") and "]" in msg else (
+            "SCAN" if "掃描" in msg else "TICKER" if msg.startswith("fetch_ticker") else lvl)
+        body = msg[len(tag) + 2:].strip() if msg.startswith("[") else msg
+        if tag == "RSI_FILTER":
+            skips.append({"ts": ts.isoformat(), "side": "long" if body.startswith("多") else "short", "why": body})
+            today_skips += day == today
+        if "本輪掃描完成" in msg:
+            last_scan, last_found = ts, body
+        log.append({"t": hhmm, "lvl": lvl, "tag": tag, "msg": _coin(body.split(" https://")[0])[:220]})
+    log = log[-40:]
+
+    recent_entries = [{"symbol": _coin(p["symbol"]), "ts": p.get("entry_ts"), "side": p.get("side"), "signal": p.get("signal", ""),
+                       "entry": p.get("entry_px")} for p in positions]
+    recent_entries += [{"symbol": _coin(t.get("sym")), "ts": t.get("entry_ts"), "side": t.get("side"), "signal": "",
+                        "entry": t.get("entry_px")} for t in full[-15:] if t.get("entry_ts")]
+    decisions = [{"symbol": "", "ts": s["ts"], "approved": False, "side": s["side"],
+                  "chip": s["why"].split("：", 1)[-1].split("斜率")[0].strip(), "context": f"{'多單' if s['side'] == 'long' else '空單'}候選",
+                  "why": s["why"]} for s in skips[-20:]]
+    decisions += [{"symbol": e["symbol"], "ts": e["ts"], "approved": True, "side": e["side"],
+                   "chip": f"{e['signal']} 進場 {e['entry']}".strip(), "context": f"NFES MTF v2 · {(e['side'] or '').upper()}",
+                   "why": f"多週期訊號 {e['signal']} 成立，進場價 {e['entry']}"} for e in recent_entries[:10]]
+    decisions.sort(key=lambda d: _parse_ts(d["ts"]) or _TS_MIN)
+
+    pos = positions[0] if positions else None
+    last = full[-1] if full else None
+    t = pos or last
+    card = None
+    if t:
+        card = {"open": bool(pos), "symbol": _coin(t.get("symbol") or t.get("sym")), "side": t.get("side"),
+                "entry": f"{t.get('entry_px')} · {(t.get('entry_ts') or '')[5:16].replace('T', ' ')}",
+                "exit": (f"止損 {t.get('sl')} / TP1 {t.get('tp1')} / TP3 {t.get('tp3')}" if pos
+                         else f"{t.get('exit_px')} · {(t.get('exit_ts') or '')[5:16].replace('T', ' ')}"),
+                "size": (f"保證金 {_usd(t.get('margin'))} · 名目 {_usd(t.get('notional'))} · {t.get('lev')}x" if pos else t.get("strategy") or ""),
+                "result": "" if pos else (t.get("reason") or ""),
+                "pnl": (t.get("unrealized_pnl") if pos else t.get("pnl")),
+                "pnl_text": (f"{(t.get('unrealized_pnl') or 0):+.2f} U 未實現" if pos else f"{(t.get('pnl') or 0):+.2f} U"),
+                "reason": (f"訊號 {t.get('signal', '')}，現價 {t.get('cur_px')}" if pos else (t.get("note") or f"出場原因：{t.get('reason')}"))}
+
+    rows = [{"ts": x.get("exit_ts"), "tag": "WIN" if (x.get("pnl") or 0) > 0 else "LOSS" if (x.get("pnl") or 0) < 0 else "BE",
+             "symbol": _coin(x.get("sym")), "why": x.get("note") or x.get("reason") or "", "pnl": x.get("pnl")} for x in trades[-7:]]
+    rows += [{"ts": s["ts"], "tag": "FILTERED", "symbol": "多單" if s["side"] == "long" else "空單", "why": s["why"], "pnl": None}
+             for s in skips[-3:]]
+    cooldown = sum(1 for v in (nfes.get("cooldown") or {}).values() if (_parse_ts(v.get("until")) or _TS_MIN) > now)
+    long_pause = _parse_ts(nfes.get("long_pause_until"))
+    wins_total, n_total = nfes.get("total_wins") or 0, nfes.get("total_trades") or 0
+
+    return {
+        "meta": {"key": "nfes", "name": "NFES", "logo": "N", "version": nfes.get("strategy") or "NFES",
+                 "log_name": "nfes_signal_bot.log", "goal_pct": None, "stall_min": 20,
+                 "filter_tile": "4H RSI 斜率過濾", "src": "nfes_bot_state / ema99_bot_state(資金池) / nfes_signal_bot.log"},
+        "now": now.isoformat(), "last_scan": _iso(last_scan) or nfes.get("last_run"),
+        "equity": eq, "month_start": month_start,
+        "month": {"wins": sum(1 for x in month_full if (x.get("pnl") or 0) > 0),
+                  "losses": sum(1 for x in month_full if (x.get("pnl") or 0) < 0)},
+        "eq_sub": f"可用 {_usd(pool)} · 鎖倉 {_usd(locked)} · 未實現 {unreal:+.2f}",
+        "curve": _terminal_curve(steps, eq, "pnl", "exit_ts"),
+        "dots": [(x.get("pnl") or 0) > 0 for x in full[-12:]],
+        "today": {"checked": today_skips + sum(1 for e in recent_entries if (e["ts"] or "")[:10] == today),
+                  "approved": sum(1 for e in recent_entries if (_parse_ts(e["ts"]) or _TS_MIN).astimezone().date() == now.date()),
+                  "filtered": today_skips, "label": "今日 RSI 斜率過濾"},
+        "agents": [
+            {"k": "scan", "c": "--y", "ic": "◉", "nm": "SCANNER", "ds": "市值排名全幣種掃描", "rule": "1H 主圖＋日線濾網", "pill": "SCAN",
+             "now": f"{last_scan.strftime('%H:%M') if last_scan else '—'} {last_found or ''}"},
+            {"k": "risk", "c": "--r", "ic": "▲", "nm": "RSI FILTER", "ds": "4H RSI 斜率要順向", "rule": "斜率不符一律跳過", "pill": "FILTER",
+             "now": (f"{skips[-1]['ts'][11:16]} {skips[-1]['why']}" if skips else "—") + (f"\n冷卻中 {cooldown} 檔" if cooldown else "")},
+            {"k": "size", "c": "--p", "ic": "◆", "nm": "SIZER", "ds": "共用資金池", "rule": f"每筆 {sc.MAX_MARGIN_PCT:.0%} 資金、強訊號上限 {sc.STRONG_MARGIN_CAP:.0f}U、鎖倉 ≤{sc.MAX_LOCKED_RATIO:.0%}",
+             "pill": "IDLE", "now": f"鎖倉 {_usd(locked)}（{locked / eq * 100 if eq else 0:.1f}%）· 可用 {_usd(pool)}"},
+            {"k": "exec", "c": "--c", "ic": "▶", "nm": "EXECUTOR", "ds": "開倉／TP1-3 分批／移動停利", "rule": "保本價跌破即出場",
+             "pill": "LIVE" if positions else "IDLE",
+             "now": ("持倉 " + "、".join(f"{_coin(p['symbol'])} {p.get('side')} {(p.get('unrealized_pnl') or 0):+.1f}U" for p in positions)) if positions else "無持倉"},
+            {"k": "log", "c": "--o", "ic": "✎", "nm": "LOGGER", "ds": "每筆出場都記錄原因", "rule": "停機期間補登", "pill": "WRITE",
+             "now": f"累計 {len(trades)} 筆紀錄 · 最新 {(trades[-1].get('exit_ts') or '')[5:16].replace('T', ' ') if trades else '—'}"},
+            {"k": "eq", "c": "--b", "ic": "◐", "nm": "EQUITY", "ds": "總資產＝可用＋鎖倉保證金", "rule": "每次平倉就更新",
+             "pill": "PAUSE" if long_pause and long_pause > now else "LIVE",
+             "now": f"總資產 {_usd(eq)} · 累計 {wins_total}勝/{n_total}筆 · 已實現 {nfes.get('total_realized_pnl', 0):+.2f}U"},
+        ],
+        "card": card,
+        "rows": sorted(rows, key=lambda r: _parse_ts(r["ts"]) or _TS_MIN, reverse=True)[:9],
+        "log": log,
+        "decisions": decisions[-30:],
+    }
+
+
+_TERMINALS = {"sam": _build_sam_terminal, "nfes": _build_nfes_terminal}   # 只給 Gist 同步迴圈用
+
+
+def _terminal_data(bot: str):
+    if not BOT_STATE_FILE.exists():                      # 雲端（Render）：讀本機同步上去的 Gist
+        data = _gist_get_file(f"terminal_{bot}.json")
+        return jsonify(data) if data else (jsonify({"error": "尚未同步"}), 503)
+    return jsonify(_TERMINALS[bot]())
+
+
+def _tpl(name: str, js: bool = False):
+    return send_from_directory(str(BASE_DIR / "templates"), name,
+                               mimetype="application/javascript" if js else None)
+
+
+# SAM 終端（獨立頁面、獨立前端）
+@app.route("/api/sam/terminal")
+def api_sam_terminal():
+    return _terminal_data("sam")
+
+@app.route("/terminal-assets/sam_terminal.js")
+def sam_terminal_js():
+    return _tpl("sam_terminal.js", js=True)
+
+@app.route("/terminal")
+def sam_terminal_page():
+    return _tpl("sam_terminal.html")
+
+
+# NFES 終端（獨立頁面、獨立前端）
+@app.route("/api/nfes/terminal")
+def api_nfes_terminal():
+    return _terminal_data("nfes")
+
+@app.route("/terminal-assets/nfes_terminal.js")
+def nfes_terminal_js():
+    return _tpl("nfes_terminal.js", js=True)
+
+@app.route("/terminal/nfes")
+def nfes_terminal_page():
+    return _tpl("nfes_terminal.html")
+
 @app.route("/99")
 def strategy99_page():
     return Response(STRATEGY99_HTML, mimetype="text/html")
@@ -2439,6 +2863,14 @@ def _jsonbin_sync_loop():
                 data = _build_crypto_data()
                 ok = _gist_put(data)
                 print(f"[Gist sync] {'✅ 推送成功' if ok else '❌ 推送失敗'} capital={data.get('capital')}")
+                term = {}
+                for bot, build in _TERMINALS.items():
+                    try:
+                        term[f"terminal_{bot}.json"] = dict(build(), synced_at=datetime.now().astimezone().isoformat())
+                    except Exception as e:
+                        print(f"[Gist sync] 終端 {bot} 組資料失敗: {e}")
+                if term and not _gist_put_files(term):
+                    print("[Gist sync] ❌ 終端資料推送失敗")
             except Exception as e:
                 print(f"[Gist sync] 錯誤: {e}")
             time.sleep(60)

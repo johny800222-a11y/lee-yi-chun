@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NFES 交易終端</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 版面：玻璃感損益主卡 → 左 agent 卡片欄 / 右 LIVE FLOW 決策重播＋統計磚＋交易卡＋log＋紀錄表；資料來自 /api/nfes/terminal */
+:root{
+  --bg:#06080c; --panel:#0c1016; --panel2:#10151d; --line:#1b2230; --fg:#e8ebf1; --dim:#7c8597; --mute:#4f5767;
+  --y:#f5c84c; --r:#ff4d5e; --p:#a78bfa; --c:#38d6e8; --o:#ff9f43; --b:#5b8cff; --g:#34d399;
+  --f-d:"Chakra Petch","Noto Sans TC",system-ui,sans-serif;
+  --f-m:"JetBrains Mono","Noto Sans TC",ui-monospace,monospace;
+  --f-b:"Noto Sans TC",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-b);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:12px}
+.mono{font-family:var(--f-m)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
+.cap{font-family:var(--f-m);font-size:10.5px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.pill{font-family:var(--f-m);font-size:10px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:5px;border:1px solid currentColor;background:color-mix(in srgb,currentColor 14%,transparent);white-space:nowrap}
+.up{color:var(--g)} .dn{color:var(--r)}
+
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:44px;height:44px;border-radius:12px;background:var(--c);color:var(--bg);display:grid;place-items:center;font-family:var(--f-d);font-weight:700;font-size:20px}
+.bar h1{font-family:var(--f-d);font-size:22px;margin:0;letter-spacing:.02em}
+.bar .sub{display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-m);font-size:10.5px}
+.live i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:ping 1.6s infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,currentColor 60%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}
+.sp{flex:1}
+.wl{display:flex;gap:22px;text-align:center}
+.wl b{display:block;font-family:var(--f-d);font-size:28px;line-height:1}
+.wl small{font-family:var(--f-m);font-size:10px;color:var(--dim)}
+
+.hero{position:relative;overflow:hidden;padding:18px 20px 12px;border-radius:16px;border:1px solid #1d2a24;
+  background:radial-gradient(600px 220px at 15% 0%,var(--glow,rgba(52,211,153,.22)),transparent 70%),linear-gradient(180deg,#0f1517,#0a0d0e)}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.05) 45%,transparent 60%);transform:translateX(-100%);animation:shine 6s ease-in-out infinite}
+@keyframes shine{50%,100%{transform:translateX(100%)}}
+.hero-g{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px}
+.big{font-family:var(--f-d);font-size:clamp(38px,7vw,64px);font-weight:700;line-height:1;margin-top:6px;font-variant-numeric:tabular-nums}
+.subv{font-family:var(--f-m);font-size:12px;margin-top:6px}
+.goal{text-align:right;font-family:var(--f-m);font-size:11px;color:var(--dim)}
+.goal b{color:var(--fg)}
+.dots{display:flex;gap:5px;justify-content:flex-end;margin:8px 0 4px;flex-wrap:wrap;max-width:200px;margin-left:auto}
+.dots i{width:8px;height:8px;border-radius:50%;background:#2a3330}
+.dots i.w{background:var(--g);box-shadow:0 0 6px var(--g)} .dots i.l{background:var(--r)}
+#spark{width:100%;height:64px;display:block;margin-top:8px}
+
+.main{display:grid;grid-template-columns:290px minmax(0,1fr);gap:12px}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+.agents{padding:12px;display:grid;gap:8px;align-content:start}
+.ag{position:relative;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);transition:border-color .3s,box-shadow .3s}
+.ag-h{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center}
+.ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--k) 22%,transparent);color:var(--k);font-size:15px}
+.ag .nm{font-family:var(--f-d);font-weight:700;font-size:14px;letter-spacing:.04em}
+.ag .ds{font-size:11px;color:var(--dim)}
+.ag .rule{font-size:11.5px;color:var(--k);margin-top:8px}
+.ag .now{font-family:var(--f-m);font-size:10.5px;color:var(--dim);margin-top:3px;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ag .pill{color:var(--k)}
+.ag.on{border-color:color-mix(in srgb,var(--k) 70%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--k) 30%,transparent),0 0 24px color-mix(in srgb,var(--k) 25%,transparent)}
+.stamp{position:absolute;right:10px;top:-8px;font-family:var(--f-m);font-size:10px;font-weight:700;color:#fff;background:var(--r);padding:2px 8px;border-radius:3px;transform:rotate(-6deg) scale(0);transition:transform .25s cubic-bezier(.3,1.6,.5,1);box-shadow:0 0 14px rgba(255,77,94,.6)}
+.ag.stamped .stamp{transform:rotate(-6deg) scale(1)}
+
+.right{display:grid;gap:12px;min-width:0}
+.flow{padding:12px 14px}
+.flow-svg{overflow-x:auto}
+.flow svg{width:100%;min-width:520px;height:auto;display:block}
+.march{stroke-dasharray:4 5;animation:march 1s linear infinite}
+@keyframes march{to{stroke-dashoffset:-18}}
+.node-ring{transform-origin:center;transform-box:fill-box;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.why{font-size:12px;color:var(--dim);margin-top:6px;min-height:36px;line-height:1.5}
+.why b{color:var(--fg)}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:var(--panel2)}
+.tile .t{font-family:var(--f-m);font-size:10px;letter-spacing:.1em;color:var(--k);font-weight:700}
+.tile b{display:block;font-family:var(--f-d);font-size:22px;margin-top:3px;font-variant-numeric:tabular-nums}
+.tile small{font-family:var(--f-m);font-size:10px;color:var(--dim)}
+
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:700px){.duo{grid-template-columns:1fr}}
+.trade{padding:14px}
+.trade .sym{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.trade .sym b{font-family:var(--f-d);font-size:26px}
+.trade .pnl{margin-left:auto;font-family:var(--f-m);font-weight:700}
+.kv{display:grid;grid-template-columns:70px 1fr;gap:3px 10px;font-family:var(--f-m);font-size:12px;margin-top:10px}
+.kv span:nth-child(odd){color:var(--dim)}
+.reason{font-size:12px;color:var(--o);margin-top:10px;line-height:1.55;max-height:112px;overflow:auto}
+.tail{padding:14px;background:#080b10}
+.tail .lines{font-family:var(--f-m);font-size:11.5px;line-height:1.65;margin-top:8px;height:236px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.tail .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tail .l.new{animation:up .3s ease-out}
+@keyframes up{from{opacity:0;transform:translateY(6px)}}
+.cur{display:inline-block;width:7px;height:13px;background:var(--g);vertical-align:-2px;animation:bl .55s infinite alternate}
+@keyframes bl{to{opacity:.15}}
+
+.res{padding:14px}
+.rrow{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;font-family:var(--f-m);font-size:12px;margin-top:10px}
+.track{height:6px;border-radius:6px;background:#161c26;overflow:hidden}
+.track i{display:block;height:100%;border-radius:6px;transition:width .8s ease-out}
+.rrow b{font-family:var(--f-d);font-size:18px;font-variant-numeric:tabular-nums}
+
+.logt{padding:14px}
+.lt{display:grid;margin-top:8px}
+.lr{display:grid;grid-template-columns:86px 82px minmax(0,1fr) auto;gap:4px 10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-family:var(--f-m);font-size:12px}
+.lr .wy{grid-column:3/5;color:var(--mute);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lr .pill{justify-self:start}
+.lr .rt{text-align:right}
+@media (max-width:520px){.lr{grid-template-columns:62px 74px minmax(0,1fr) auto}.lr .tm{font-size:10px}}
+.foot{font-family:var(--f-m);font-size:10.5px;color:var(--mute);text-align:center;padding:4px 0 8px}
+.err{color:var(--r)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01s!important;animation-iteration-count:1!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div class="logo" id="logo">·</div>
+    <div>
+      <h1 id="bname">交易終端</h1>
+      <div class="sub"><span class="pill" style="color:var(--dim)" id="ver">—</span><span class="live" id="live" style="color:var(--g)"><i></i><span>連線中</span></span></div>
+    </div>
+    <div class="sp"></div>
+    <div class="wl"><div><b id="wins" class="up">–</b><small>本月勝</small></div><div><b id="losses" class="dn">–</b><small>本月敗</small></div><div><b id="skips" style="color:var(--y)">–</b><small>近期攔下</small></div></div>
+  </div>
+
+  <section class="hero" id="hero">
+    <div class="hero-g">
+      <div>
+        <div class="cap" style="justify-content:flex-start">本月損益（已實現）</div>
+        <div class="big" id="big">—</div>
+        <div class="subv" id="subv">讀取中…</div>
+      </div>
+      <div class="goal"><span id="goalt">月目標 <b id="goalv">+3%</b></span><div class="dots" id="dots"></div><span id="wr">—</span></div>
+    </div>
+    <canvas id="spark" aria-label="淨值曲線"></canvas>
+  </section>
+
+  <div class="main">
+    <section class="panel agents" id="agents">
+      <div class="cap">AGENTS <span id="online">—</span></div>
+    </section>
+
+    <div class="right">
+      <section class="panel flow">
+        <div class="cap">LIVE FLOW · 重播最近決策 <span id="replay">—</span></div>
+        <div class="flow-svg"><svg viewBox="0 0 600 230" id="fsvg" aria-label="決策流程圖"></svg></div>
+        <div class="why" id="why"></div>
+        <div class="tiles">
+          <div class="tile" style="--k:var(--r)"><div class="t">▲ 攔下</div><b id="t1">–</b><small id="t1s">—</small></div>
+          <div class="tile" style="--k:var(--g)"><div class="t">✓ 通過</div><b id="t2">–</b><small>可進場訊號</small></div>
+          <div class="tile" style="--k:var(--o)"><div class="t">● 決策紀錄</div><b id="t3">–</b><small>每筆都有理由</small></div>
+          <div class="tile" style="--k:var(--b)"><div class="t">◐ 總資產</div><b id="t4">–</b><small id="t4s">–</small></div>
+        </div>
+      </section>
+
+      <div class="duo">
+        <section class="panel trade">
+          <div class="cap"><span id="tcap">TRADE · 最近一筆</span><span class="pill" id="tst" style="color:var(--dim)">—</span></div>
+          <div class="sym"><b id="tsym">—</b><span class="pill" id="tside" hidden>LONG</span><span class="pnl" id="tpnl"></span></div>
+          <div class="kv"><span>進場</span><span id="ten">—</span><span>出場</span><span id="tex">—</span><span>倉位</span><span id="tsz">—</span><span>結果</span><span id="tr">—</span></div>
+          <div class="reason" id="trs"></div>
+        </section>
+        <section class="panel tail">
+          <div class="cap"><span style="color:var(--g)" id="logname">$ tail -f</span><span id="tn">—</span></div>
+          <div class="lines" id="tail"></div>
+        </section>
+      </div>
+
+      <section class="panel res">
+        <div class="cap">RESULT · 月初 vs 現在 <span id="rng">—</span></div>
+        <div class="rrow"><span style="color:var(--dim)">月初</span><div class="track"><i id="m0bar" style="width:50%;background:#3a4252"></i></div><b id="m0v">—</b></div>
+        <div class="rrow"><span style="color:var(--dim)">現在</span><div class="track"><i id="nowbar" style="width:50%"></i></div><b id="nowv">—</b></div>
+      </section>
+
+      <section class="panel logt">
+        <div class="cap">LOG <span>只看紀錄，不問 AI「要不要做多」</span></div>
+        <div class="lt" id="lt"></div>
+      </section>
+    </div>
+  </div>
+  <div class="foot" id="foot">每 30 秒更新</div>
+</div>
+
+<script src="/terminal-assets/nfes_terminal.js"></script>
+</body>
+</html>
