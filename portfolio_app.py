@@ -128,7 +128,7 @@ def _gist_get_file(filename: str, ttl: int = 30) -> dict | None:
     if c and time.time() - c[0] < ttl:
         return c[1]
     try:
-        r = _requests.get(f"https://gist.githubusercontent.com/johny800222-a11y/{GIST_ID}/raw/{filename}", timeout=8)
+        r = _requests.get(f"https://gist.githubusercontent.com/johny800222-a11y/{GIST_ID}/raw/{filename}?t={int(time.time())}", timeout=8)  # 加參數避開 raw CDN 約 5 分鐘的快取
         if r.ok:
             data = json.loads(r.text)
             _gist_files_cache[filename] = (time.time(), data)
